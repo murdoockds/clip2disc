@@ -60,8 +60,17 @@ jobs:
       - name: List Build Files
         run: |
           ls build/Desktop_Qt_6_8_2_MinGW_64_bit-Release
-          ls build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/release || echo "No release folder, checking build root"
-          ls build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/*.exe || echo "No .exe found"
+
+      - name: Build standalone package
+        run: |
+          md package
+          Copy-Item build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/clip2disc.exe package
+          cd package
+          windeployqt clip2disc.exe
+
+      - name: List Files
+        run: |
+          ls
 
       # - name: Create Installer (Optional)
       #   run: |
@@ -78,8 +87,8 @@ jobs:
       - name: Upload Executable
         uses: actions/upload-artifact@v4
         with:
-          name: Clip2Disc Executable
-          path: build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/*.exe
+          name: clip2disc
+          path: package
 
       # - name: Upload Installer (if created)
       #   uses: actions/upload-artifact@v4
