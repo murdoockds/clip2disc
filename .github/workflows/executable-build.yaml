@@ -1,0 +1,153 @@
+name: Python Package Build & Release
+
+permissions:
+  contents: write  # Allow pushing tags and creating releases
+
+on:
+  push:
+    branches:
+      - '**'
+
+  workflow_dispatch:  # Manual trigger for tagging & release
+    inputs:
+      version_type:
+        description: "Version type (major, minor, patch)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+env:
+  # Customize the CMake build type here (Release, Debug, RelWithDebInfo, etc.)
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    runs-on: windows-latest  # Use Windows runner for .exe creation
+    strategy:
+      fail-fast: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: 6.8.2
+          host: windows
+          target: desktop
+          arch: win64_msvc2022_64
+          set-env: true
+
+      - name: Configure CMake
+        # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
+        # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+
+      - name: Build
+        # Build your program with the given configuration
+        run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
+
+      - name: Test
+        working-directory: ${{github.workspace}}/build
+        # Execute tests defined by the CMake configuration.
+        # See https://cmake.org/cmake/help/latest/manual/ctest.1.html for more detail
+        run: ctest -C ${{env.BUILD_TYPE}}
+
+      - name: Lists all files
+        run: |
+          ls
+
+      - name: Upload ZIP as an Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Clip2Disc
+          path: Clip2Disc
+
+  release:
+    if: github.event_name == 'workflow_dispatch'  # Runs only when manually triggered
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensure full git history is fetched
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Get latest tag
+        id: get-latest-tag
+        shell: pwsh
+        run: |
+          $latestTag = git describe --tags --abbrev=0 2>$null
+          if (-not $latestTag) { $latestTag = "v0.0.0" }
+          echo "TAG=$latestTag" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Determine New Version
+        id: new-version
+        shell: pwsh
+        run: |
+          $oldTag = "${{ env.TAG }}"
+          $version = $oldTag -replace "v",""
+          $parts = $version -split "\."
+          $major = [int]$parts[0]
+          $minor = [int]$parts[1]
+          $patch = [int]$parts[2]
+
+          if ("${{ github.event.inputs.version_type }}" -eq "major") {
+            $major += 1
+            $minor = 0
+            $patch = 0
+          } elseif ("${{ github.event.inputs.version_type }}" -eq "minor") {
+            $minor += 1
+            $patch = 0
+          } else {
+            $patch += 1
+          }
+
+          $newTag = "v$major.$minor.$patch"
+          echo "NEW_TAG=$newTag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          echo "New version determined: $newTag"
+
+      - name: Download Built Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: Clip2Disc
+          path: build_artifact  # Store in a separate folder
+
+      - name: List downloaded files
+        run: ls -la build_artifact
+
+      - name: Repackage files into a versioned ZIP
+        run: |
+          cd build_artifact
+          zip -r ../Clip2Disc-${{ env.NEW_TAG }}.zip .
+          cd ..
+
+      - name: Verify final ZIP
+        run: ls -la Clip2Disc-${{ env.NEW_TAG }}.zip
+
+      - name: Create and push new tag
+        shell: pwsh
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git tag "${{ env.NEW_TAG }}"
+          git push origin "${{ env.NEW_TAG }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ env.NEW_TAG }}
+          name: ${{ env.NEW_TAG }}
+          body: "New release: ${{ env.NEW_TAG }}"
+          draft: false
+          prerelease: false
+          files: Clip2Disc-${{ env.NEW_TAG }}.zip
