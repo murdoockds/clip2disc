@@ -1,0 +1,148 @@
+name: Build & Release
+
+permissions:
+  contents: write  # Allow pushing tags and creating releases
+
+on:
+  push:
+    branches:
+      - '**'
+
+  workflow_dispatch:
+    inputs:
+      version_type:
+        description: "Version type (major, minor, patch)"
+        required: true
+        default: "patch"
+        type: choice
+        options:
+          - major
+          - minor
+          - patch
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  versioning:
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.get-version.outputs.VERSION }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensure full git history is fetched
+
+      - name: Fetch all tags
+        run: git fetch --tags
+
+      - name: Determine Version
+        id: get-version
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            latest_tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+            version="${latest_tag//v/}"
+            IFS='.' read -r major minor patch <<< "$version"
+
+            case "${{ github.event.inputs.version_type }}" in
+              major) ((major++)); minor=0; patch=0 ;;
+              minor) ((minor++)); patch=0 ;;
+              patch) ((patch++)) ;;
+            esac
+
+            new_version="v$major.$minor.$patch"
+            echo "VERSION=$new_version" >> $GITHUB_ENV
+            echo "VERSION=$new_version" >> $GITHUB_OUTPUT
+            echo "New version: $new_version"
+          else
+            commit_hash=$(git rev-parse --short HEAD)
+            echo "VERSION=$commit_hash" >> $GITHUB_ENV
+            echo "VERSION=$commit_hash" >> $GITHUB_OUTPUT
+            echo "Using commit hash: $commit_hash"
+          fi
+
+  build:
+    needs: versioning
+    runs-on: windows-latest
+    steps:
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.2'
+          arch: 'win64_mingw'
+          tools: 'tools_mingw1310'
+          aqtversion: '==3.1.19'
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Prepare Build Directory
+        run: |
+          echo "Creating build directories..."
+          md build
+          cd build
+          md release
+
+      - name: Configure CMake
+        run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release -G "MinGW Makefiles"
+
+      - name: Build
+        run: cmake --build ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release -- -j4
+
+      - name: Build standalone package
+        run: |
+          md package
+          Copy-Item build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/clip2disc.exe package
+          cd package
+          windeployqt clip2disc.exe
+
+      - name: Create Installer
+        run: |
+          echo "Creating Installer..."
+          ISCC /Fclip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64 /DVersion=${{ needs.versioning.outputs.VERSION }} clip2disc_installer.iss
+
+      - name: Upload Installer Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clip2disc_installer
+          path: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
+          if-no-files-found: ignore
+
+  release:
+    if: github.event_name == 'workflow_dispatch'
+    needs: [versioning, build]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: clip2disc_installer
+          path: .
+
+      - name: Repackage files into a versioned ZIP
+        run: |
+          zip -r clip2disc_installer .
+
+      - name: Create and push new tag
+        run: |
+          git config --global user.name "github-actions"
+          git config --global user.email "github-actions@github.com"
+          git tag "${{ needs.versioning.outputs.VERSION }}"
+          git push origin "${{ needs.versioning.outputs.VERSION }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.versioning.outputs.VERSION }}
+          name: ${{ needs.versioning.outputs.VERSION }}
+          body: "New release: ${{ needs.versioning.outputs.VERSION }}"
+          draft: false
+          prerelease: false
+          files: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
