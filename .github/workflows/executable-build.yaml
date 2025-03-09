@@ -72,17 +72,10 @@ jobs:
         run: |
           ls
 
-      # - name: Create Installer (Optional)
-      #   run: |
-      #     echo "Creating Installer..."
-      #     md installer
-      #     md publish
-          
-      #     echo "Copying necessary files..."
-      #     Copy-Item build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/*.exe installer
-          
-      #     echo "Running Inno Setup..."
-      #     & ISCC /O publish /FClip2DiscInstaller installer_script.iss || echo "Skipping Inno Setup, no script found."
+      - name: Create Installer (Optional)
+        run: |
+          echo "Creating Installer..."
+          ISCC clip2disc_installer.iss
 
       - name: Upload Executable
         uses: actions/upload-artifact@v4
