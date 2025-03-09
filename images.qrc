@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/images">
+        <file alias="clip2disc.png">resources/images/clip2disc.png</file>
+        <file alias="clip2disc.ico">resources/images/clip2disc-logo.ico</file>
+    </qresource>
+</RCC>
