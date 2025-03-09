@@ -2,7 +2,7 @@
 
 [Setup]
 AppName=Clip2Disc
-AppVersion=1.0
+AppVersion={#Version}
 DefaultDirName={commonpf}\Clip2Disc
 DefaultGroupName=Clip2Disc
 OutputDir=.
