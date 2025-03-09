@@ -27,15 +27,18 @@ const
 procedure DownloadAndExtract(URL, DestFile, ExtractPath: string);
 var
   ResultCode: Integer;
+  ZipPath, ExtractCommand: string;
 begin
-  if not DownloadTemporaryFile(URL, ExpandConstant('{tmp}\' + DestFile)) then
+  ZipPath := ExpandConstant('{tmp}\' + DestFile);
+  
+  if not DownloadTemporaryFile(URL, ZipPath) then
   begin
     MsgBox('Failed to download ' + DestFile, mbError, MB_OK);
     exit;
   end;
 
-  ExtractTemporaryFile(DestFile);
-  Exec(ExpandConstant('{tmp}\7za.exe'), 'x {tmp}\' + DestFile + ' -o' + ExtractPath + ' -y', '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  ExtractCommand := '/C powershell -Command "Expand-Archive -Path ' + ZipPath + ' -DestinationPath ' + ExtractPath + ' -Force"';
+  Exec('cmd.exe', ExtractCommand, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
