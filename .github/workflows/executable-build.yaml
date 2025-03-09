@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Clip2Disc
-          path: Clip2Disc
+          path: build/release/clip2disc.exe
 
   release:
     if: github.event_name == 'workflow_dispatch'  # Runs only when manually triggered
