@@ -99,7 +99,7 @@ jobs:
       - name: Create Installer
         run: |
           echo "Creating Installer..."
-          ISCC /Fclip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64 /DGitHash=${{ needs.versioning.outputs.VERSION }} clip2disc_installer.iss
+          ISCC /Fclip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64 /DVersion=${{ needs.versioning.outputs.VERSION }} clip2disc_installer.iss
 
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
