@@ -72,23 +72,17 @@ jobs:
         run: |
           ls
 
-      - name: Create Installer (Optional)
+      - name: Create Installer
         run: |
           echo "Creating Installer..."
           ISCC clip2disc_installer.iss
 
-      - name: Upload Executable
+      - name: Upload Installer
         uses: actions/upload-artifact@v4
         with:
-          name: clip2disc
-          path: package
-
-      # - name: Upload Installer (if created)
-      #   uses: actions/upload-artifact@v4
-      #   with:
-      #     name: Clip2Disc Installer
-      #     path: publish/*.exe
-      #     if-no-files-found: ignore
+          name: Clip2Disc Installer
+          path: Clip2Disc_Installer.exe
+          if-no-files-found: ignore
 
   release:
     if: github.event_name == 'workflow_dispatch'  # Runs only when manually triggered
