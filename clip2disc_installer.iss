@@ -27,7 +27,7 @@ const
 procedure DownloadAndExtract(URL, DestFile, ExtractPath: string);
 var
   ResultCode: Integer;
-  ZipPath, ExtractCommand: string;
+  ZipPath, ExtractCmd: string;
 begin
   ZipPath := ExpandConstant('{tmp}\' + DestFile);
   
@@ -37,8 +37,8 @@ begin
     exit;
   end;
 
-  ExtractCommand := '/C powershell -Command "Expand-Archive -Path ' + ZipPath + ' -DestinationPath ' + ExtractPath + ' -Force"';
-  Exec('cmd.exe', ExtractCommand, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  ExtractCmd := '/C powershell -ExecutionPolicy Bypass -NoProfile -Command "Expand-Archive -Path ''' + ZipPath + ''' -DestinationPath ''' + ExtractPath + ''' -Force"';
+  Exec('cmd.exe', ExtractCmd, '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);

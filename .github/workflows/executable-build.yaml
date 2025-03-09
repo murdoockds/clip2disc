@@ -1,4 +1,4 @@
-name: Python Package Build & Release
+name: Build & Release
 
 permissions:
   contents: write  # Allow pushing tags and creating releases
