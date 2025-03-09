@@ -25,33 +25,37 @@ env:
   BUILD_TYPE: Release
 
 jobs:
-  build:
-    runs-on: windows-latest  # Use Windows runner for .exe creation
-    strategy:
-      fail-fast: false
+  qtbuild:
+    name: Build with Qt
+    runs-on: windows-latest
 
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
         with:
-          version: 6.8.2
-          host: windows
-          target: desktop
-          arch: win64_mingw
-          set-env: true
+          version: '6.8.2'
+          arch: 'win64_mingw'
+          tools: 'tools_mingw1310'
+          aqtversion: '==3.1.19'
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Fetch Git Tags
+        run: git fetch --prune --unshallow --tags
+
+      - name: Prepare Build Directory
+        run: |
+          echo "Creating build directories..."
+          md build
+          cd build
+          md release
 
       - name: Configure CMake
-        run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release
+        run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release -G "MinGW Makefiles"
 
       - name: Build
-        run: cmake --build ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release --target all
-
-      - name: Test (if applicable)
-        working-directory: ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release
-        run: ctest -C Release || echo "No tests found, continuing..."
+        run: cmake --build ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release -- -j4
 
       - name: List Build Files
         run: |
@@ -59,13 +63,30 @@ jobs:
           ls build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/release || echo "No release folder, checking build root"
           ls build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/*.exe || echo "No .exe found"
 
-      - name: Upload ZIP as an Artifact
+      # - name: Create Installer (Optional)
+      #   run: |
+      #     echo "Creating Installer..."
+      #     md installer
+      #     md publish
+          
+      #     echo "Copying necessary files..."
+      #     Copy-Item build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/*.exe installer
+          
+      #     echo "Running Inno Setup..."
+      #     & ISCC /O publish /FClip2DiscInstaller installer_script.iss || echo "Skipping Inno Setup, no script found."
+
+      - name: Upload Executable
         uses: actions/upload-artifact@v4
         with:
-          name: Clip2Disc
-          path: |
-            build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/*.exe
-            build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/release/*.exe
+          name: Clip2Disc Executable
+          path: build/Desktop_Qt_6_8_2_MinGW_64_bit-Release/*.exe
+
+      # - name: Upload Installer (if created)
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: Clip2Disc Installer
+      #     path: publish/*.exe
+      #     if-no-files-found: ignore
 
   release:
     if: github.event_name == 'workflow_dispatch'  # Runs only when manually triggered
