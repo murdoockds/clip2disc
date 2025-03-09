@@ -105,7 +105,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: clip2disc_installer
-          path: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64
+          path: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
           if-no-files-found: ignore
 
   release:
