@@ -10,11 +10,11 @@ OutputBaseFilename=Clip2Disc_Installer
 Compression=lzma
 SolidCompression=yes
 ArchitecturesInstallIn64BitMode=x64
-SetupIconFile=clip2disc.ico
+SetupIconFile=resources\images\clip2disc.ico
 
 [Files]
 Source: "package\*"; DestDir: "{app}"; Flags: recursesubdirs createallsubdirs
-Source: "clip2disc.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "resources\images\clip2disc.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{group}\Clip2Disc"; Filename: "{app}\clip2disc.exe"; IconFilename: "{app}\clip2disc.ico"
