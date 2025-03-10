@@ -60,6 +60,7 @@ jobs:
             echo "VERSION=$commit_hash" >> $GITHUB_OUTPUT
             echo "Using commit hash: $commit_hash"
           fi
+        shell: bash
 
   build:
     needs: versioning
