@@ -23,9 +23,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->aboutButton, &QPushButton::clicked, this, &MainWindow::showAboutDialog);
     connect(ffmpegProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::updateProgress);
     
-    // Initialize paths for ffmpeg and ffprobe
     if (!initializeBinaryPaths()) {
-        // Disable UI elements if binaries are not found
         ui->inputButton->setEnabled(false);
         ui->outputButton->setEnabled(false);
         ui->startButton->setEnabled(false);
@@ -39,13 +37,10 @@ MainWindow::~MainWindow()
 
 bool MainWindow::initializeBinaryPaths()
 {
-    // Get application directory
     QString appDir = QCoreApplication::applicationDirPath();
     
-    // Check for binaries in the "binaries" subdirectory
     QDir binariesDir(appDir + "/binaries");
     
-    // Try to find ffmpeg in binaries directory first
     QString ffmpegPath = binariesDir.absoluteFilePath("ffmpeg");
     QString ffprobePath = binariesDir.absoluteFilePath("ffprobe");
     
@@ -56,7 +51,6 @@ bool MainWindow::initializeBinaryPaths()
     
     bool localBinariesExist = QFile::exists(ffmpegPath) && QFile::exists(ffprobePath);
     
-    // If binaries exist in the local directory, use them
     if (localBinariesExist) {
         this->ffmpegPath = ffmpegPath;
         this->ffprobePath = ffprobePath;
@@ -65,7 +59,6 @@ bool MainWindow::initializeBinaryPaths()
         qDebug() << "  ffprobe:" << this->ffprobePath;
         return true;
     } else {
-        // Check if system binaries are available
         QProcess testProcess;
         testProcess.start("ffmpeg", QStringList() << "-version");
         bool systemFfmpegExists = testProcess.waitForFinished(3000) && (testProcess.exitCode() == 0);
@@ -74,13 +67,11 @@ bool MainWindow::initializeBinaryPaths()
         bool systemFfprobeExists = testProcess.waitForFinished(3000) && (testProcess.exitCode() == 0);
         
         if (systemFfmpegExists && systemFfprobeExists) {
-            // Fall back to system binaries
             this->ffmpegPath = "ffmpeg";
             this->ffprobePath = "ffprobe";
             qDebug() << "Using system FFmpeg binaries";
             return true;
         } else {
-            // Neither local nor system binaries are available
             QString errorMessage = "FFmpeg binaries not found!\n\n";
             errorMessage += "Clip2Disc requires FFmpeg to function properly.\n";
             errorMessage += "Please install FFmpeg or place the binaries in the 'binaries' folder next to the application.";
