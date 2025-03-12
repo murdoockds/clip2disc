@@ -30,10 +30,13 @@ private:
     QString inputFilePath;
     QString outputFilePath;
     QString trimmedFilePath;
+    QString ffmpegInputFile;
+    QString ffmpegPath;
+    QString ffprobePath;
     QProcess *ffmpegProcess;
     int totalDuration = 0;
-    QString ffmpegInputFile;
     int getVideoDuration(const QString &filePath);
     void deleteTrimmedFile(const QString &filePath);
+    void initializeBinaryPaths();
 };
 #endif // MAINWINDOW_H

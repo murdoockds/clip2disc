@@ -7,6 +7,8 @@
 #include <QRegularExpression>
 #include <QDebug>
 #include <QTimer>
+#include <QCoreApplication>
+#include <QDir>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -19,11 +21,46 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startButton, &QPushButton::clicked, this, &MainWindow::startEncoding);
     connect(ui->aboutButton, &QPushButton::clicked, this, &MainWindow::showAboutDialog);
     connect(ffmpegProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::updateProgress);
+    
+    // Initialize paths for ffmpeg and ffprobe
+    initializeBinaryPaths();
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+void MainWindow::initializeBinaryPaths()
+{
+    // Get application directory
+    QString appDir = QCoreApplication::applicationDirPath();
+    
+    // Check for binaries in the "binaries" subdirectory
+    QDir binariesDir(appDir + "/binaries");
+    
+    // Try to find ffmpeg in binaries directory first
+    QString ffmpegPath = binariesDir.absoluteFilePath("ffmpeg");
+    QString ffprobePath = binariesDir.absoluteFilePath("ffprobe");
+    
+    #ifdef Q_OS_WIN
+        ffmpegPath += ".exe";
+        ffprobePath += ".exe";
+    #endif
+    
+    // If binaries exist in the local directory, use them
+    if (QFile::exists(ffmpegPath) && QFile::exists(ffprobePath)) {
+        this->ffmpegPath = ffmpegPath;
+        this->ffprobePath = ffprobePath;
+        qDebug() << "Using local FFmpeg binaries:";
+        qDebug() << "  ffmpeg:" << this->ffmpegPath;
+        qDebug() << "  ffprobe:" << this->ffprobePath;
+    } else {
+        // Fall back to system binaries
+        this->ffmpegPath = "ffmpeg";
+        this->ffprobePath = "ffprobe";
+        qDebug() << "Using system FFmpeg binaries";
+    }
 }
 
 void MainWindow::selectInputFile()
@@ -69,7 +106,10 @@ void MainWindow::startEncoding()
                                 trimmedFilePath};
 
         QProcess trimProcess;
-        trimProcess.start("ffmpeg", trimArgs);
+        trimProcess.setProgram(ffmpegPath);
+        trimProcess.setArguments(trimArgs);
+        trimProcess.start();
+        
         if (!trimProcess.waitForFinished(-1)) {
             QMessageBox::warning(this, "Error", "Trimming process failed.");
             return;
@@ -100,7 +140,7 @@ void MainWindow::startEncoding()
                                 "-nostats",
                                 "-loglevel", "error",
                                 outputFilePath};
-    ffmpegProcess->setProgram("ffmpeg");
+    ffmpegProcess->setProgram(ffmpegPath);
     ffmpegProcess->setArguments(compressArgs);
     ffmpegProcess->setProcessChannelMode(QProcess::MergedChannels);
     ffmpegProcess->setReadChannel(QProcess::StandardOutput);
@@ -117,11 +157,14 @@ void MainWindow::deleteTrimmedFile(const QString &trimmedfilePath)
 int MainWindow::getVideoDuration(const QString &filePath)
 {
     QProcess process;
-    process.start("ffprobe", {"-v", "error",
-                              "-select_streams", "v:0",
-                              "-show_entries", "format=duration",
-                              "-of", "default=noprint_wrappers=1:nokey=1",
-                              filePath});
+    process.setProgram(ffprobePath);
+    process.setArguments({"-v", "error",
+                          "-select_streams", "v:0",
+                          "-show_entries", "format=duration",
+                          "-of", "default=noprint_wrappers=1:nokey=1",
+                          filePath});
+    process.start();
+    
     if (!process.waitForFinished(3000)) return 0;
 
     bool ok;
