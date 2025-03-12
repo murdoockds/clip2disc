@@ -126,12 +126,12 @@ jobs:
       - name: Download Installer
         uses: actions/download-artifact@v4
         with:
-          name: clip2disc_installer
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_installer
           path: .
 
       - name: Repackage files into a versioned ZIP
         run: |
-          zip -r clip2disc_installer .
+          zip -r clip2disc_${{ needs.versioning.outputs.VERSION }}_installer .
 
       - name: Create and push new tag
         run: |
