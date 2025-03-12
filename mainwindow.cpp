@@ -7,6 +7,9 @@
 #include <QRegularExpression>
 #include <QDebug>
 #include <QTimer>
+#include <QCoreApplication>
+#include <QDir>
+#include <QProcess>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -19,11 +22,64 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->startButton, &QPushButton::clicked, this, &MainWindow::startEncoding);
     connect(ui->aboutButton, &QPushButton::clicked, this, &MainWindow::showAboutDialog);
     connect(ffmpegProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::updateProgress);
+    
+    if (!initializeBinaryPaths()) {
+        ui->inputButton->setEnabled(false);
+        ui->outputButton->setEnabled(false);
+        ui->startButton->setEnabled(false);
+    }
 }
 
 MainWindow::~MainWindow()
 {
     delete ui;
+}
+
+bool MainWindow::initializeBinaryPaths()
+{
+    QString appDir = QCoreApplication::applicationDirPath();
+    
+    QDir binariesDir(appDir + "/binaries");
+    
+    QString ffmpegPath = binariesDir.absoluteFilePath("ffmpeg");
+    QString ffprobePath = binariesDir.absoluteFilePath("ffprobe");
+    
+    #ifdef Q_OS_WIN
+        ffmpegPath += ".exe";
+        ffprobePath += ".exe";
+    #endif
+    
+    bool localBinariesExist = QFile::exists(ffmpegPath) && QFile::exists(ffprobePath);
+    
+    if (localBinariesExist) {
+        this->ffmpegPath = ffmpegPath;
+        this->ffprobePath = ffprobePath;
+        qDebug() << "Using local FFmpeg binaries:";
+        qDebug() << "  ffmpeg:" << this->ffmpegPath;
+        qDebug() << "  ffprobe:" << this->ffprobePath;
+        return true;
+    } else {
+        QProcess testProcess;
+        testProcess.start("ffmpeg", QStringList() << "-version");
+        bool systemFfmpegExists = testProcess.waitForFinished(3000) && (testProcess.exitCode() == 0);
+        
+        testProcess.start("ffprobe", QStringList() << "-version");
+        bool systemFfprobeExists = testProcess.waitForFinished(3000) && (testProcess.exitCode() == 0);
+        
+        if (systemFfmpegExists && systemFfprobeExists) {
+            this->ffmpegPath = "ffmpeg";
+            this->ffprobePath = "ffprobe";
+            qDebug() << "Using system FFmpeg binaries";
+            return true;
+        } else {
+            QString errorMessage = "FFmpeg binaries not found!\n\n";
+            errorMessage += "Clip2Disc requires FFmpeg to function properly.\n";
+            errorMessage += "Please install FFmpeg or place the binaries in the 'binaries' folder next to the application.";
+            
+            QMessageBox::critical(this, "Error", errorMessage);
+            return false;
+        }
+    }
 }
 
 void MainWindow::selectInputFile()
@@ -69,7 +125,10 @@ void MainWindow::startEncoding()
                                 trimmedFilePath};
 
         QProcess trimProcess;
-        trimProcess.start("ffmpeg", trimArgs);
+        trimProcess.setProgram(ffmpegPath);
+        trimProcess.setArguments(trimArgs);
+        trimProcess.start();
+        
         if (!trimProcess.waitForFinished(-1)) {
             QMessageBox::warning(this, "Error", "Trimming process failed.");
             return;
@@ -100,7 +159,7 @@ void MainWindow::startEncoding()
                                 "-nostats",
                                 "-loglevel", "error",
                                 outputFilePath};
-    ffmpegProcess->setProgram("ffmpeg");
+    ffmpegProcess->setProgram(ffmpegPath);
     ffmpegProcess->setArguments(compressArgs);
     ffmpegProcess->setProcessChannelMode(QProcess::MergedChannels);
     ffmpegProcess->setReadChannel(QProcess::StandardOutput);
@@ -117,11 +176,14 @@ void MainWindow::deleteTrimmedFile(const QString &trimmedfilePath)
 int MainWindow::getVideoDuration(const QString &filePath)
 {
     QProcess process;
-    process.start("ffprobe", {"-v", "error",
-                              "-select_streams", "v:0",
-                              "-show_entries", "format=duration",
-                              "-of", "default=noprint_wrappers=1:nokey=1",
-                              filePath});
+    process.setProgram(ffprobePath);
+    process.setArguments({"-v", "error",
+                          "-select_streams", "v:0",
+                          "-show_entries", "format=duration",
+                          "-of", "default=noprint_wrappers=1:nokey=1",
+                          filePath});
+    process.start();
+    
     if (!process.waitForFinished(3000)) return 0;
 
     bool ok;
