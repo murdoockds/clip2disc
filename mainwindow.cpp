@@ -110,67 +110,40 @@ void MainWindow::startEncoding()
     ui->progressBar->setValue(0);
 
     int videoDuration = getVideoDuration(inputFilePath);
-    bool shouldTrim = (videoDuration > 30);
-    trimmedFilePath.clear();
-    ffmpegInputFile = inputFilePath;
-
-    if (shouldTrim) {
-        trimmedFilePath = QFileInfo(outputFilePath).absolutePath() + "/for_compression_trimmed_video.mp4";
-        QStringList trimArgs = {"-y",
-                                "-i", inputFilePath,
-                                "-ss", QString::number(videoDuration - 30),
-                                "-t", "30",
-                                "-c:v", "copy",
-                                "-c:a", "copy",
-                                trimmedFilePath};
-
-        QProcess trimProcess;
-        trimProcess.setProgram(ffmpegPath);
-        trimProcess.setArguments(trimArgs);
-        trimProcess.start();
-        
-        if (!trimProcess.waitForFinished(-1)) {
-            QMessageBox::warning(this, "Error", "Trimming process failed.");
-            return;
-        }
-        totalDuration = getVideoDuration(trimmedFilePath);
-        ffmpegInputFile = trimmedFilePath;
+    QStringList ffmpegArgs;
+    
+    if (videoDuration > 30) {
+        ffmpegArgs << "-y" 
+                   << "-ss" << QString::number(videoDuration - 30)
+                   << "-i" << inputFilePath
+                   << "-t" << "30";
+        totalDuration = 30;
     } else {
+        ffmpegArgs << "-y" << "-i" << inputFilePath;
         totalDuration = videoDuration;
     }
-
+    
+    ffmpegArgs << "-c:v" << "libx264"
+               << "-preset" << "fast"
+               << "-b:v" << "2600k"
+               << "-r" << "48"
+               << "-vf" << "scale=1280:720"
+               << "-movflags" << "+faststart"
+               << "-progress" << "pipe:1"
+               << "-nostats"
+               << "-loglevel" << "error"
+               << outputFilePath;
+    
     ffmpegProcess = new QProcess(this);
     connect(ffmpegProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::updateProgress);
     connect(ffmpegProcess, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
-        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-            deleteTrimmedFile(trimmedFilePath);
-        }
     });
-
-    QStringList compressArgs = {"-y",
-                                "-i", ffmpegInputFile,
-                                "-c:v", "libx264",
-                                "-preset", "veryfast",
-                                "-b:v", "2600k",
-                                "-r", "48",
-                                "-vf", "scale=1280:720",
-                                "-movflags", "+faststart",
-                                "-progress", "pipe:1",
-                                "-nostats",
-                                "-loglevel", "error",
-                                outputFilePath};
+    
     ffmpegProcess->setProgram(ffmpegPath);
-    ffmpegProcess->setArguments(compressArgs);
+    ffmpegProcess->setArguments(ffmpegArgs);
     ffmpegProcess->setProcessChannelMode(QProcess::MergedChannels);
     ffmpegProcess->setReadChannel(QProcess::StandardOutput);
     ffmpegProcess->start();
-}
-
-void MainWindow::deleteTrimmedFile(const QString &trimmedfilePath)
-{
-    if (!trimmedFilePath.isEmpty() && QFile::exists(trimmedFilePath)) {
-        QFile::remove(trimmedFilePath);
-    }
 }
 
 int MainWindow::getVideoDuration(const QString &filePath)
@@ -216,7 +189,6 @@ void MainWindow::updateProgress()
         }, Qt::QueuedConnection);
 
         QMessageBox::information(this, "Finished", "Video compressed!");
-        deleteTrimmedFile(trimmedFilePath);
     }
 }
 
