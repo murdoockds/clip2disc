@@ -44,11 +44,16 @@ jobs:
             version="${latest_tag//v/}"
             IFS='.' read -r major minor patch <<< "$version"
 
-            case "${{ github.event.inputs.version_type }}" in
-              major) ((major++)); minor=0; patch=0 ;;
-              minor) ((minor++)); patch=0 ;;
-              patch) ((patch++)) ;;
-            esac
+            if [ "${{ github.event.inputs.version_type }}" == "major" ]; then
+              major=$((major + 1))
+              minor=0
+              patch=0
+            elif [ "${{ github.event.inputs.version_type }}" == "minor" ]; then
+              minor=$((minor + 1))
+              patch=0
+            else
+              patch=$((patch + 1))
+            fi
 
             new_version="v$major.$minor.$patch"
             echo "VERSION=$new_version" >> $GITHUB_ENV
@@ -60,7 +65,6 @@ jobs:
             echo "VERSION=$commit_hash" >> $GITHUB_OUTPUT
             echo "Using commit hash: $commit_hash"
           fi
-        shell: bash
 
   build:
     needs: versioning
