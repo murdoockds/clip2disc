@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+
 #include <QFileDialog>
 #include <QMessageBox>
 #include <QDesktopServices>
@@ -17,13 +18,18 @@ MainWindow::MainWindow(QWidget *parent)
     , ffmpegProcess(new QProcess(this))
 {
     ui->setupUi(this);
+
+    qDebug() << "Application started";
+    qDebug() << "App dir:" << QCoreApplication::applicationDirPath();
+
     connect(ui->inputButton, &QPushButton::clicked, this, &MainWindow::selectInputFile);
     connect(ui->outputButton, &QPushButton::clicked, this, &MainWindow::selectOutputFile);
     connect(ui->startButton, &QPushButton::clicked, this, &MainWindow::startEncoding);
     connect(ui->aboutButton, &QPushButton::clicked, this, &MainWindow::showAboutDialog);
     connect(ffmpegProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::updateProgress);
-    
+
     if (!initializeBinaryPaths()) {
+        qDebug() << "FFmpeg initialization failed";
         ui->inputButton->setEnabled(false);
         ui->outputButton->setEnabled(false);
         ui->startButton->setEnabled(false);
@@ -38,56 +44,78 @@ MainWindow::~MainWindow()
 bool MainWindow::initializeBinaryPaths()
 {
     QString appDir = QCoreApplication::applicationDirPath();
-    
     QDir binariesDir(appDir + "/binaries");
-    
+
     QString ffmpegPath = binariesDir.absoluteFilePath("ffmpeg");
     QString ffprobePath = binariesDir.absoluteFilePath("ffprobe");
-    
-    #ifdef Q_OS_WIN
-        ffmpegPath += ".exe";
-        ffprobePath += ".exe";
-    #endif
-    
+
+#ifdef Q_OS_WIN
+    ffmpegPath += ".exe";
+    ffprobePath += ".exe";
+#endif
+
+    qDebug() << "Looking for FFmpeg binaries";
+    qDebug() << "ffmpeg candidate:" << ffmpegPath;
+    qDebug() << "ffprobe candidate:" << ffprobePath;
+
     bool localBinariesExist = QFile::exists(ffmpegPath) && QFile::exists(ffprobePath);
-    
+
     if (localBinariesExist) {
         this->ffmpegPath = ffmpegPath;
         this->ffprobePath = ffprobePath;
-        qDebug() << "Using local FFmpeg binaries:";
-        qDebug() << "  ffmpeg:" << this->ffmpegPath;
-        qDebug() << "  ffprobe:" << this->ffprobePath;
+        qDebug() << "Using local FFmpeg binaries";
         return true;
-    } else {
-        QProcess testProcess;
-        testProcess.start("ffmpeg", QStringList() << "-version");
-        bool systemFfmpegExists = testProcess.waitForFinished(3000) && (testProcess.exitCode() == 0);
-        
-        testProcess.start("ffprobe", QStringList() << "-version");
-        bool systemFfprobeExists = testProcess.waitForFinished(3000) && (testProcess.exitCode() == 0);
-        
-        if (systemFfmpegExists && systemFfprobeExists) {
-            this->ffmpegPath = "ffmpeg";
-            this->ffprobePath = "ffprobe";
-            qDebug() << "Using system FFmpeg binaries";
-            return true;
-        } else {
-            QString errorMessage = "FFmpeg binaries not found!\n\n";
-            errorMessage += "Clip2Disc requires FFmpeg to function properly.\n";
-            errorMessage += "Please install FFmpeg or place the binaries in the 'binaries' folder next to the application.";
-            
-            QMessageBox::critical(this, "Error", errorMessage);
-            return false;
-        }
     }
+
+    qDebug() << "Local binaries not found, testing system FFmpeg";
+
+    QProcess testProcess;
+    testProcess.start("ffmpeg", {"-version"});
+    bool systemFfmpegExists = testProcess.waitForFinished(3000) && testProcess.exitCode() == 0;
+
+    testProcess.start("ffprobe", {"-version"});
+    bool systemFfprobeExists = testProcess.waitForFinished(3000) && testProcess.exitCode() == 0;
+
+    qDebug() << "System ffmpeg:" << systemFfmpegExists;
+    qDebug() << "System ffprobe:" << systemFfprobeExists;
+
+    if (systemFfmpegExists && systemFfprobeExists) {
+        this->ffmpegPath = "ffmpeg";
+        this->ffprobePath = "ffprobe";
+        return true;
+    }
+
+    QMessageBox::critical(this, "Error", "FFmpeg binaries not found!");
+    return false;
 }
 
 void MainWindow::selectInputFile()
 {
-    inputFilePath = QFileDialog::getOpenFileName(this, "Select Video File", "", "Videos (*.mp4 *.mkv *.avi *.mov)");
-    if (!inputFilePath.isEmpty())
-        ui->inputLabel->setPlainText(inputFilePath);
+    inputFilePath = QFileDialog::getOpenFileName(
+        this,
+        "Select Video File",
+        "",
+        "Videos (*.mp4 *.mkv *.avi *.mov)"
+    );
+
+    if (inputFilePath.isEmpty())
+        return;
+
+    ui->inputLabel->setPlainText(inputFilePath);
+
+    QFileInfo inputInfo(inputFilePath);
+
+    QString suggestedOutput =
+        inputInfo.absolutePath() + "/" +
+        inputInfo.completeBaseName() +
+        "-clipped.mp4";
+
+    if (outputFilePath.isEmpty()) {
+        outputFilePath = suggestedOutput;
+        ui->outputLabel->setPlainText(outputFilePath);
+    }
 }
+
 
 void MainWindow::selectOutputFile()
 {
@@ -98,125 +126,205 @@ void MainWindow::selectOutputFile()
 
 void MainWindow::startEncoding()
 {
+    qDebug() << "Start encoding clicked";
+    qDebug() << "Input:" << inputFilePath;
+    qDebug() << "Output:" << outputFilePath;
+
     if (inputFilePath.isEmpty() || outputFilePath.isEmpty()) {
         QMessageBox::warning(this, "Warning", "Please select both input and output files.");
         return;
     }
 
+    if (!outputFilePath.endsWith(".mp4", Qt::CaseInsensitive)) {
+        outputFilePath += ".mp4";
+        ui->outputLabel->setPlainText(outputFilePath);
+    }
+
     ui->inputButton->setEnabled(false);
     ui->outputButton->setEnabled(false);
     ui->startButton->setEnabled(false);
-
     ui->progressBar->setValue(0);
 
     int videoDuration = getVideoDuration(inputFilePath);
+    qDebug() << "Input duration:" << videoDuration << "seconds";
+
     bool shouldTrim = (videoDuration > 30);
+    isTrimming = shouldTrim;
+
     trimmedFilePath.clear();
     ffmpegInputFile = inputFilePath;
 
     if (shouldTrim) {
-        trimmedFilePath = QFileInfo(outputFilePath).absolutePath() + "/for_compression_trimmed_video.mp4";
-        QStringList trimArgs = {"-y",
-                                "-i", inputFilePath,
-                                "-ss", QString::number(videoDuration - 30),
-                                "-t", "30",
-                                "-c:v", "copy",
-                                "-c:a", "copy",
-                                trimmedFilePath};
+        totalDuration = 30;
+
+        QFileInfo inputInfo(outputFilePath);
+
+        trimmedFilePath =
+            inputInfo.absolutePath() + "/" +
+            inputInfo.completeBaseName() +
+            "-trimming.mp4";
+
+
+        QStringList trimArgs = {
+            "-y",
+            "-ss", QString::number(videoDuration - 30),
+            "-i", inputFilePath,
+            "-t", "30",
+            "-c:v", "libx264",
+            "-preset", "veryfast",
+            "-crf", "18",
+            "-c:a", "aac",
+            "-movflags", "+faststart",
+            "-progress", "pipe:1",
+            "-nostats",
+            "-loglevel", "error",
+            trimmedFilePath
+        };
+
+        qDebug() << "Running trim FFmpeg:";
+        qDebug() << ffmpegPath << trimArgs;
 
         QProcess trimProcess;
         trimProcess.setProgram(ffmpegPath);
         trimProcess.setArguments(trimArgs);
+        trimProcess.setProcessChannelMode(QProcess::MergedChannels);
         trimProcess.start();
-        
-        if (!trimProcess.waitForFinished(-1)) {
-            QMessageBox::warning(this, "Error", "Trimming process failed.");
-            return;
+
+        while (trimProcess.state() != QProcess::NotRunning) {
+            trimProcess.waitForReadyRead(100);
+            ffmpegProcess = &trimProcess;
+            updateProgress();
+            QCoreApplication::processEvents();
         }
+
+        qDebug() << "Trim exit code:" << trimProcess.exitCode();
+
+        isTrimming = false;   // ✅ VERY IMPORTANT
+
         totalDuration = getVideoDuration(trimmedFilePath);
+        qDebug() << "Trimmed duration:" << totalDuration;
+
         ffmpegInputFile = trimmedFilePath;
     } else {
         totalDuration = videoDuration;
+        isTrimming = false;
     }
 
+    qDebug() << "Starting compression";
+    qDebug() << "Input used:" << ffmpegInputFile;
+
     ffmpegProcess = new QProcess(this);
-    connect(ffmpegProcess, &QProcess::readyReadStandardOutput, this, &MainWindow::updateProgress);
-    connect(ffmpegProcess, &QProcess::finished, this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+
+    connect(ffmpegProcess, &QProcess::readyReadStandardOutput,
+            this, &MainWindow::updateProgress);
+
+    connect(ffmpegProcess, &QProcess::finished,
+            this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
+
+        qDebug() << "Compression finished";
+        qDebug() << "Exit code:" << exitCode;
+        qDebug() << "Exit status:" << exitStatus;
+
         if (exitStatus == QProcess::NormalExit && exitCode == 0) {
             deleteTrimmedFile(trimmedFilePath);
         }
     });
 
-    QStringList compressArgs = {"-y",
-                                "-i", ffmpegInputFile,
-                                "-c:v", "libx264",
-                                "-preset", "veryfast",
-                                "-b:v", "2600k",
-                                "-r", "48",
-                                "-vf", "scale=1280:720",
-                                "-movflags", "+faststart",
-                                "-progress", "pipe:1",
-                                "-nostats",
-                                "-loglevel", "error",
-                                outputFilePath};
+    QStringList compressArgs = {
+        "-y",
+        "-i", ffmpegInputFile,
+        "-c:v", "libx264",
+        "-preset", "veryfast",
+        "-b:v", "2600k",
+        "-r", "48",
+        "-vf", "scale=1280:720",
+        "-movflags", "+faststart",
+        "-progress", "pipe:1",
+        "-nostats",
+        "-loglevel", "error",
+        outputFilePath
+    };
+
+    qDebug() << "Compression command:";
+    qDebug() << ffmpegPath << compressArgs;
+
     ffmpegProcess->setProgram(ffmpegPath);
     ffmpegProcess->setArguments(compressArgs);
     ffmpegProcess->setProcessChannelMode(QProcess::MergedChannels);
-    ffmpegProcess->setReadChannel(QProcess::StandardOutput);
     ffmpegProcess->start();
+
+    qDebug() << "FFmpeg compression started";
 }
 
-void MainWindow::deleteTrimmedFile(const QString &trimmedfilePath)
+void MainWindow::deleteTrimmedFile(const QString &trimmedFilePath)
 {
     if (!trimmedFilePath.isEmpty() && QFile::exists(trimmedFilePath)) {
+        qDebug() << "Deleting trimmed file:" << trimmedFilePath;
         QFile::remove(trimmedFilePath);
     }
 }
 
 int MainWindow::getVideoDuration(const QString &filePath)
 {
+    qDebug() << "Getting duration for:" << filePath;
+
     QProcess process;
     process.setProgram(ffprobePath);
-    process.setArguments({"-v", "error",
-                          "-select_streams", "v:0",
-                          "-show_entries", "format=duration",
-                          "-of", "default=noprint_wrappers=1:nokey=1",
-                          filePath});
+    process.setArguments({
+        "-v", "error",
+        "-show_entries", "format=duration",
+        "-of", "default=noprint_wrappers=1:nokey=1",
+        filePath
+    });
+
     process.start();
-    
-    if (!process.waitForFinished(3000)) return 0;
+
+    if (!process.waitForFinished(3000)) {
+        qDebug() << "ffprobe timeout";
+        return 0;
+    }
+
+    QString output = process.readAllStandardOutput().trimmed();
+    qDebug() << "ffprobe output:" << output;
 
     bool ok;
-    int duration = process.readAllStandardOutput().trimmed().toDouble(&ok);
+    int duration = output.toDouble(&ok);
     return ok ? duration : 0;
 }
 
 void MainWindow::updateProgress()
 {
-    static const QRegularExpression re("out_time=([0-9]+):([0-9]+):([0-9]+\\.?[0-9]*)");
-
     QString text = ffmpegProcess->readAllStandardOutput();
+    qDebug() << "FFmpeg progress:" << text;
+
+    static const QRegularExpression re("out_time_ms=([0-9]+)");
     QRegularExpressionMatch match = re.match(text);
 
-    if (match.hasMatch()) {
-        int currentSeconds = match.captured(1).toInt() * 3600 + match.captured(2).toInt() * 60 + match.captured(3).toDouble();
-        if (totalDuration > 0) {
-            int progress = qMin(static_cast<int>((currentSeconds * 100) / totalDuration), 100);
-            QMetaObject::invokeMethod(this, [=]() { ui->progressBar->setValue(progress); }, Qt::QueuedConnection);
+    if (match.hasMatch() && totalDuration > 0) {
+        qint64 currentMs = match.captured(1).toLongLong();
+        int currentSeconds = currentMs / 1000000;
+
+        int percent = qMin((currentSeconds * 100) / totalDuration, 100);
+
+        if (isTrimming) {
+            percent = percent * 40 / 100;        // 0–40%
+        } else {
+            percent = 40 + percent * 60 / 100;   // 40–100%
         }
+
+        ui->progressBar->setValue(percent);
     }
 
-    if (text.contains("progress=end")) {
-        ffmpegProcess->disconnect();
-        QMetaObject::invokeMethod(this, [=]() {
-            ui->progressBar->setValue(100);
-            ui->inputButton->setEnabled(true);
-            ui->outputButton->setEnabled(true);
-            ui->startButton->setEnabled(true);
-        }, Qt::QueuedConnection);
+    // ✅ Only finish when NOT trimming
+    if (text.contains("progress=end") && !isTrimming) {
+        qDebug() << "Compression reported progress=end";
+
+        ui->progressBar->setValue(100);
+        ui->inputButton->setEnabled(true);
+        ui->outputButton->setEnabled(true);
+        ui->startButton->setEnabled(true);
 
         QMessageBox::information(this, "Finished", "Video compressed!");
-        deleteTrimmedFile(trimmedFilePath);
     }
 }
 
