@@ -105,15 +105,14 @@ void MainWindow::selectInputFile()
 
     QFileInfo inputInfo(inputFilePath);
 
-    QString suggestedOutput =
+    outputFilePath =
         inputInfo.absolutePath() + "/" +
         inputInfo.completeBaseName() +
         "-clipped.mp4";
 
-    if (outputFilePath.isEmpty()) {
-        outputFilePath = suggestedOutput;
-        ui->outputLabel->setPlainText(outputFilePath);
-    }
+    ui->outputLabel->setPlainText(outputFilePath);
+
+    qDebug() << "Auto-filled output file:" << outputFilePath;
 }
 
 
@@ -199,7 +198,7 @@ void MainWindow::startEncoding()
 
         qDebug() << "Trim exit code:" << trimProcess.exitCode();
 
-        isTrimming = false;   // ✅ VERY IMPORTANT
+        isTrimming = false;
 
         totalDuration = getVideoDuration(trimmedFilePath);
         qDebug() << "Trimmed duration:" << totalDuration;
@@ -234,8 +233,8 @@ void MainWindow::startEncoding()
         "-y",
         "-i", ffmpegInputFile,
         "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-b:v", "2600k",
+        "-preset", "fast",
+        "-b:v", "2550k",
         "-r", "48",
         "-vf", "scale=1280:720",
         "-movflags", "+faststart",
