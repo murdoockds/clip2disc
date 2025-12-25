@@ -38,5 +38,6 @@ private:
     int getVideoDuration(const QString &filePath);
     void deleteTrimmedFile(const QString &filePath);
     bool initializeBinaryPaths();
+    bool isTrimming = false;
 };
 #endif // MAINWINDOW_H
