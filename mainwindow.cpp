@@ -1,6 +1,7 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
 #include "videoinfo.h"
+#include "player.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -23,6 +24,12 @@ MainWindow::MainWindow(QWidget *parent)
     , ffmpegProcess(new QProcess(this))
 {
     ui->setupUi(this);
+
+    // Create the player
+    m_player = new Player(this);
+
+    // Put it inside the UI placeholder
+    ui->videoContainer->layout()->addWidget(m_player);
 
     qDebug() << "Application started";
     qDebug() << "App dir:" << QCoreApplication::applicationDirPath();
@@ -198,6 +205,9 @@ void MainWindow::selectInputFile()
         "-clipped.mp4";
 
     ui->outputLabel->setPlainText(outputFilePath);
+
+    // 🔥 This is the key line
+    m_player->setSourceFile(inputFilePath);
 
     qDebug() << "Auto-filled output file:" << outputFilePath;
 }

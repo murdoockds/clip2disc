@@ -5,6 +5,8 @@
 #include <QProcess>
 #include "videoinfo.h"
 
+// Forward declaration (IMPORTANT)
+class Player;
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -26,10 +28,16 @@ private slots:
     void startEncoding();
     void updateProgress();
     void showAboutDialog();
-
+    
 private:
     VideoInfo probeVideo(const QString &filePath);
+
     Ui::MainWindow *ui;
+
+    // 🔽 Embedded media player
+    Player *m_player = nullptr;
+
+    // Existing fields
     QString inputFilePath;
     QString outputFilePath;
     QString trimmedFilePath;
@@ -39,6 +47,7 @@ private:
     QProcess *ffmpegProcess;
     qint64 videoDurationMs = 0;
     int totalDuration = 0;
+
     int getVideoDuration(const QString &filePath);
     void deleteTrimmedFile(const QString &filePath);
     bool initializeBinaryPaths();

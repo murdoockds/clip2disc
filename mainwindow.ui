@@ -206,6 +206,11 @@
           <height>300</height>
          </size>
         </property>
+        <layout class="QHBoxLayout" name="horizontalLayout_5">
+         <item>
+          <layout class="QHBoxLayout" name="horizontalLayout_2"/>
+         </item>
+        </layout>
        </widget>
       </item>
       <item>
