@@ -3,6 +3,8 @@
 
 #include <QMainWindow>
 #include <QProcess>
+#include "videoinfo.h"
+
 
 QT_BEGIN_NAMESPACE
 namespace Ui {
@@ -26,6 +28,7 @@ private slots:
     void showAboutDialog();
 
 private:
+    VideoInfo probeVideo(const QString &filePath);
     Ui::MainWindow *ui;
     QString inputFilePath;
     QString outputFilePath;
@@ -34,6 +37,7 @@ private:
     QString ffmpegPath;
     QString ffprobePath;
     QProcess *ffmpegProcess;
+    qint64 videoDurationMs = 0;
     int totalDuration = 0;
     int getVideoDuration(const QString &filePath);
     void deleteTrimmedFile(const QString &filePath);

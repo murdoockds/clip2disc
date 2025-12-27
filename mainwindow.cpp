@@ -1,5 +1,6 @@
 #include "mainwindow.h"
 #include "./ui_mainwindow.h"
+#include "videoinfo.h"
 
 #include <QFileDialog>
 #include <QMessageBox>
@@ -11,6 +12,10 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QProcess>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -40,6 +45,64 @@ MainWindow::~MainWindow()
 {
     delete ui;
 }
+
+VideoInfo MainWindow::probeVideo(const QString &filePath)
+{
+    VideoInfo info;
+
+    QProcess process;
+    process.setProgram(ffprobePath);
+    process.setArguments({
+        "-v", "error",
+        "-print_format", "json",
+        "-show_format",
+        "-show_streams",
+        filePath
+    });
+
+    process.start();
+    process.waitForFinished(3000);
+
+    QByteArray output = process.readAllStandardOutput();
+    QJsonDocument doc = QJsonDocument::fromJson(output);
+
+    if (!doc.isObject())
+        return info;
+
+    QJsonObject root = doc.object();
+
+    // ---- format section ----
+    QJsonObject format = root["format"].toObject();
+    info.duration = format["duration"].toString().toDouble();
+    info.bitrate  = format["bit_rate"].toString().toLongLong();
+
+    // ---- streams section ----
+    QJsonArray streams = root["streams"].toArray();
+    for (const QJsonValue &v : streams) {
+        QJsonObject s = v.toObject();
+        QString type = s["codec_type"].toString();
+
+        if (type == "video") {
+            info.videoCodec = s["codec_name"].toString();
+            info.width  = s["width"].toInt();
+            info.height = s["height"].toInt();
+
+            // FPS: r_frame_rate = "30000/1001"
+            QString fpsStr = s["r_frame_rate"].toString();
+            if (fpsStr.contains("/")) {
+                auto parts = fpsStr.split("/");
+                info.fps = parts[0].toDouble() / parts[1].toDouble();
+            }
+        }
+
+        if (type == "audio") {
+            info.audioCodec = s["codec_name"].toString();
+        }
+    }
+
+    return info;
+}
+
 
 bool MainWindow::initializeBinaryPaths()
 {
@@ -102,6 +165,30 @@ void MainWindow::selectInputFile()
         return;
 
     ui->inputLabel->setPlainText(inputFilePath);
+
+    VideoInfo info = probeVideo(inputFilePath);
+
+    // Example: update UI labels
+    ui->durationLabel->setText(
+        QString::number(info.duration, 'f', 1) + " s");
+
+    ui->resolutionLabel->setText(
+        QString("%1x%2").arg(info.width).arg(info.height));
+
+    ui->codecLabel->setText(
+        QString("V: %1 | A: %2")
+            .arg(info.videoCodec)
+            .arg(info.audioCodec));
+
+    ui->fpsLabel->setText(
+        QString::number(info.fps, 'f', 2) + " fps");
+
+    qDebug() << "Probed video:"
+             << info.duration
+             << info.width << "x" << info.height
+             << info.videoCodec
+             << info.audioCodec
+             << info.fps;
 
     QFileInfo inputInfo(inputFilePath);
 
@@ -326,6 +413,7 @@ void MainWindow::updateProgress()
         QMessageBox::information(this, "Finished", "Video compressed!");
     }
 }
+
 
 void MainWindow::showAboutDialog()
 {
