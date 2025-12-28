@@ -234,6 +234,11 @@ void MainWindow::startEncoding()
     qDebug() << "Input:" << inputFilePath;
     qDebug() << "Output:" << outputFilePath;
 
+    // 🔥 PAUSE VIDEO PLAYBACK
+    if (m_player) {
+        m_player->pause();
+    }
+
     if (inputFilePath.isEmpty() || outputFilePath.isEmpty()) {
         QMessageBox::warning(this, "Warning", "Please select both input and output files.");
         return;

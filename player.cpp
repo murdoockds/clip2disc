@@ -1,5 +1,6 @@
 #include "player.h"
 #include "clickoverlay.h"
+#include "timelinewidget.h"
 
 #include <QMediaPlayer>
 #include <QAudioOutput>
@@ -36,7 +37,7 @@ Player::Player(QWidget *parent)
     auto *videoContainer = new QWidget(this);
     videoContainer->setLayout(videoStack);
 
-    // --- Controls ---
+    // --- Play / Pause button ---
     m_playPauseButton = new QPushButton(tr("Play"), this);
 
     connect(m_playPauseButton, &QPushButton::clicked, this, [this] {
@@ -54,11 +55,38 @@ Player::Player(QWidget *parent)
     controlsLayout->addWidget(m_playPauseButton);
     controlsLayout->addStretch();
 
+    // --- Timeline (single widget, 3 handles) ---
+    m_timeline = new TimelineWidget(this);
+
+    connect(m_player, &QMediaPlayer::durationChanged,
+            m_timeline, &TimelineWidget::setDuration);
+
+    connect(m_player, &QMediaPlayer::positionChanged,
+            m_timeline, &TimelineWidget::setPlayPosition);
+
+    // 🔥 QML-style behavior: continuous seek, no pause/resume
+    connect(m_timeline, &TimelineWidget::playPositionChanged,
+            this, [this](qint64 pos) {
+                m_player->setPosition(pos);
+            });
+
+    connect(m_player, &QMediaPlayer::mediaStatusChanged,
+            this, [this](QMediaPlayer::MediaStatus status) {
+                if (status == QMediaPlayer::LoadedMedia ||
+                    status == QMediaPlayer::BufferedMedia) {
+
+                    m_player->play();
+                    m_playPauseButton->setText(tr("Pause"));
+                }
+            });
+
+
     // --- Main layout ---
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->addWidget(videoContainer, 1);
-    mainLayout->addLayout(controlsLayout);
+    mainLayout->addWidget(videoContainer, 1); // video + overlay
+    mainLayout->addWidget(m_timeline);        // timeline
+    mainLayout->addLayout(controlsLayout);    // play/pause
 
     setLayout(mainLayout);
 
@@ -78,5 +106,24 @@ void Player::setSourceFile(const QString &filePath)
     if (filePath.isEmpty())
         return;
 
-    setSource(QUrl::fromLocalFile(filePath));
+    m_player->setSource(QUrl::fromLocalFile(filePath));
+    m_overlay->hide();
+}
+
+qint64 Player::trimStart() const
+{
+    return m_timeline->startPosition();
+}
+
+qint64 Player::trimEnd() const
+{
+    return m_timeline->endPosition();
+}
+
+void Player::pause()
+{
+    if (m_player->playbackState() == QMediaPlayer::PlayingState) {
+        m_player->pause();
+        m_playPauseButton->setText(tr("Play"));
+    }
 }
