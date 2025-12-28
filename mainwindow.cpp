@@ -25,11 +25,19 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // Create the player
-    m_player = new Player(this);
+    // 🔧 Ensure videoContainer has a layout
+    if (!ui->videoContainer->layout()) {
+        ui->videoContainer->setLayout(new QVBoxLayout);
+        ui->videoContainer->layout()->setContentsMargins(0, 0, 0, 0);
+    }
 
-    // Put it inside the UI placeholder
+    // 🎬 Create the player INSIDE the container
+    m_player = new Player(ui->videoContainer);
     ui->videoContainer->layout()->addWidget(m_player);
+
+    // 🔥 THIS WAS THE MISSING LINK
+    connect(m_player, &Player::requestOpenFile,
+            this, &MainWindow::selectInputFile);
 
     qDebug() << "Application started";
     qDebug() << "App dir:" << QCoreApplication::applicationDirPath();
