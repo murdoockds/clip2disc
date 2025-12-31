@@ -13,6 +13,7 @@
 
 Player::Player(QWidget *parent)
     : QWidget(parent)
+    , m_autoPlayPending(false)
 {
     // --- Media objects ---
     m_player = new QMediaPlayer(this);
@@ -45,6 +46,10 @@ Player::Player(QWidget *parent)
             m_player->pause();
             m_playPauseButton->setText(tr("Play"));
         } else {
+            // ▶️ Restart ONLY if user clicks Play at end
+            if (m_player->position() >= m_timeline->endPosition()) {
+                m_player->setPosition(m_timeline->startPosition());
+            }
             m_player->play();
             m_playPauseButton->setText(tr("Pause"));
         }
@@ -55,39 +60,53 @@ Player::Player(QWidget *parent)
     controlsLayout->addWidget(m_playPauseButton);
     controlsLayout->addStretch();
 
-    // --- Timeline (single widget, 3 handles) ---
+    // --- Timeline ---
     m_timeline = new TimelineWidget(this);
 
     connect(m_player, &QMediaPlayer::durationChanged,
             m_timeline, &TimelineWidget::setDuration);
 
+    // --- Stop cleanly at trim end ---
     connect(m_player, &QMediaPlayer::positionChanged,
-            m_timeline, &TimelineWidget::setPlayPosition);
+            this, [this](qint64 pos) {
 
-    // 🔥 QML-style behavior: continuous seek, no pause/resume
+                const qint64 end = m_timeline->endPosition();
+
+                if (m_player->playbackState() == QMediaPlayer::PlayingState &&
+                    pos >= end) {
+
+                    m_player->pause();
+                    m_player->setPosition(end);
+                    m_playPauseButton->setText(tr("Play"));
+                    return;
+                }
+
+                m_timeline->setPlayPosition(pos);
+            });
+
+    // --- Continuous seek from timeline ---
     connect(m_timeline, &TimelineWidget::playPositionChanged,
             this, [this](qint64 pos) {
                 m_player->setPosition(pos);
             });
 
+    // --- Autoplay ONLY when loading a new file ---
     connect(m_player, &QMediaPlayer::mediaStatusChanged,
             this, [this](QMediaPlayer::MediaStatus status) {
-                if (status == QMediaPlayer::LoadedMedia ||
-                    status == QMediaPlayer::BufferedMedia) {
-
+                if (status == QMediaPlayer::LoadedMedia && m_autoPlayPending) {
+                    m_autoPlayPending = false;
+                    m_player->setPosition(m_timeline->startPosition());
                     m_player->play();
                     m_playPauseButton->setText(tr("Pause"));
                 }
             });
 
-
     // --- Main layout ---
     auto *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(0, 0, 0, 0);
-    mainLayout->addWidget(videoContainer, 1); // video + overlay
-    mainLayout->addWidget(m_timeline);        // timeline
-    mainLayout->addLayout(controlsLayout);    // play/pause
-
+    mainLayout->addWidget(videoContainer, 1);
+    mainLayout->addWidget(m_timeline);
+    mainLayout->addLayout(controlsLayout);
     setLayout(mainLayout);
 
     // --- Overlay click ---
@@ -97,6 +116,7 @@ Player::Player(QWidget *parent)
 
 void Player::setSource(const QUrl &url)
 {
+    m_autoPlayPending = true;
     m_player->setSource(url);
     m_overlay->hide();
 }
@@ -106,6 +126,7 @@ void Player::setSourceFile(const QString &filePath)
     if (filePath.isEmpty())
         return;
 
+    m_autoPlayPending = true;
     m_player->setSource(QUrl::fromLocalFile(filePath));
     m_overlay->hide();
 }

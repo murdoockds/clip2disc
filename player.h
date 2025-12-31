@@ -31,6 +31,9 @@ signals:
     void requestOpenFile();
 
 private:
+    bool m_autoPlayPending;
+    bool m_reachedTrimEnd = false;
+
     // Core media objects
     QMediaPlayer  *m_player = nullptr;
     QAudioOutput  *m_audioOutput = nullptr;

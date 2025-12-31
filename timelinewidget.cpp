@@ -5,9 +5,10 @@
 TimelineWidget::TimelineWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setMinimumHeight(40);
+    setMinimumHeight(70);   // ⬅ wider / thicker timeline
     setMouseTracking(true);
 }
+
 
 void TimelineWidget::setDuration(qint64 durationMs)
 {
@@ -56,47 +57,95 @@ void TimelineWidget::paintEvent(QPaintEvent *)
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
 
-    const int h = height() / 2;
+    const int trackHeight = 16;
+    const int handleRadius = 7;
+    const int centerY = height() / 2;
 
-    // Base bar
+    const int trackTop = centerY - trackHeight / 2;
+
+    // --- Base track ---
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(60, 60, 60));
-    p.drawRect(0, h - 3, width(), 6);
+    p.setBrush(QColor(50, 50, 50));
+    p.drawRoundedRect(
+        0,
+        trackTop,
+        width(),
+        trackHeight,
+        6,
+        6
+        );
 
-    // Active (trimmed) range
-    int x1 = positionToX(m_start);
-    int x2 = positionToX(m_end);
+    // --- Active (trim) range ---
+    const int xStart = positionToX(m_start);
+    const int xEnd   = positionToX(m_end);
+
     p.setBrush(QColor(100, 180, 255));
-    p.drawRect(x1, h - 3, x2 - x1, 6);
+    p.drawRoundedRect(
+        xStart,
+        trackTop,
+        xEnd - xStart,
+        trackHeight,
+        6,
+        6
+        );
 
-    // Handles
-    auto drawHandle = [&](int x, const QColor &color) {
-        p.setBrush(color);
-        p.drawEllipse(QPoint(x, h), 6, 6);
+    // --- Start / End handles ---
+    auto drawHandle = [&](int x) {
+        p.setBrush(Qt::white);
+        p.drawEllipse(QPoint(x, centerY), handleRadius, handleRadius);
     };
 
-    drawHandle(x1, Qt::white);                 // start
-    drawHandle(positionToX(m_play), Qt::red);  // play
-    drawHandle(x2, Qt::white);                 // end
+    drawHandle(xStart);
+    drawHandle(xEnd);
+
+    // --- Playhead (vertical line) ---
+    const int playX = positionToX(m_play);
+
+    p.setPen(QPen(Qt::red, 2));
+    p.drawLine(
+        playX,
+        trackTop - 8,
+        playX,
+        trackTop + trackHeight + 8
+        );
 }
+
 
 void TimelineWidget::mousePressEvent(QMouseEvent *e)
 {
     const int x = int(e->position().x());
+    const qint64 clickedPos = xToPosition(x);
 
-    if (qAbs(x - positionToX(m_start)) < 8) {
+    const int startX = positionToX(m_start);
+    const int playX  = positionToX(m_play);
+    const int endX   = positionToX(m_end);
+
+    // 1️⃣ Handle dragging (priority)
+    if (qAbs(x - startX) < 8) {
         m_activeHandle = Start;
+        return;
     }
-    else if (qAbs(x - positionToX(m_play)) < 8) {
+    if (qAbs(x - playX) < 8) {
         m_activeHandle = Play;
+        return;
     }
-    else if (qAbs(x - positionToX(m_end)) < 8) {
+    if (qAbs(x - endX) < 8) {
         m_activeHandle = End;
+        return;
     }
-    else {
-        m_activeHandle = None;
+
+    // 2️⃣ Click inside active (blue) range → move playhead
+    if (clickedPos >= m_start && clickedPos <= m_end) {
+        m_play = clickedPos;
+        emit playPositionChanged(m_play);
+        update();
+        return;
     }
+
+    // 3️⃣ Otherwise: nothing
+    m_activeHandle = None;
 }
+
 
 void TimelineWidget::mouseMoveEvent(QMouseEvent *e)
 {
@@ -106,7 +155,15 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent *e)
     const qint64 pos = xToPosition(int(e->position().x()));
 
     if (m_activeHandle == Start) {
-        m_start = qMin(pos, m_end);
+        const qint64 newStart = qMin(pos, m_end);
+
+        // 🎯 If start is pushed past playhead, move playhead with it
+        if (newStart > m_start && newStart >= m_play) {
+            m_play = newStart;
+            emit playPositionChanged(m_play);
+        }
+
+        m_start = newStart;
         emit startPositionChanged(m_start);
     }
     else if (m_activeHandle == Play) {
