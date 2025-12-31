@@ -115,6 +115,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     ui->resolutionCombo->setEnabled(false);
 
+    connect(m_player, &Player::trimChanged,
+            this, &MainWindow::updateMarkedDuration);
+
+    connect(m_player, &Player::trimChanged,
+            this, [this](qint64, qint64) {
+                updateEstimatedFileSize();
+            });
+
 }
 
 MainWindow::~MainWindow()
@@ -252,7 +260,7 @@ bool MainWindow::initializeBinaryPaths()
 
 void MainWindow::updateEstimatedFileSize()
 {
-    if (m_sourceInfo.duration <= 0) {
+    if (!m_player || m_sourceInfo.duration <= 0) {
         ui->fileSizeLabel->setText("—");
         return;
     }
@@ -303,14 +311,25 @@ void MainWindow::updateEstimatedFileSize()
         return;
     }
 
+    // --- Duration (marked or full) ---
+    double durationSec = m_sourceInfo.duration;
+
+    qint64 startMs = m_player->trimStart();
+    qint64 endMs   = m_player->trimEnd();
+
+    if (endMs > startMs) {
+        durationSec = (endMs - startMs) / 1000.0;
+    }
+
     // --- Size calculation ---
     double sizeMB =
-        (totalBitrateKbps * m_sourceInfo.duration) / (8.0 * 1024.0);
+        (totalBitrateKbps * durationSec) / (8.0 * 1024.0);
 
     ui->fileSizeLabel->setText(
         QString("File size: %1 MB")
             .arg(sizeMB, 0, 'f', 1)
         );
+
 }
 
 
@@ -431,8 +450,10 @@ void MainWindow::selectInputFile()
 
     // ---- Player ----
     m_player->setSourceFile(inputFilePath);
-}
 
+    updateMarkedDuration(0, m_sourceInfo.duration * 1000);
+
+}
 
 void MainWindow::selectOutputFile()
 {
@@ -440,6 +461,25 @@ void MainWindow::selectOutputFile()
     if (!outputFilePath.isEmpty())
         ui->outputLabel->setPlainText(outputFilePath);
 }
+
+void MainWindow::updateMarkedDuration(qint64 startMs, qint64 endMs)
+{
+    if (m_sourceInfo.duration <= 0)
+        return;
+
+    const double markedSec =
+        qMax<qint64>(0, endMs - startMs) / 1000.0;
+
+    const double originalSec = m_sourceInfo.duration;
+
+    ui->durationLabel->setText(
+        QString("%1 s / %2 s")
+            .arg(markedSec, 0, 'f', 1)
+            .arg(originalSec, 0, 'f', 1)
+        );
+}
+
+
 
 void MainWindow::startEncoding()
 {
@@ -552,20 +592,59 @@ void MainWindow::startEncoding()
         }
     });
 
+    // --- Selected UI values ---
+    int videoBitrate = ui->videoBitrateSlider->value();   // kbps
+    int audioBitrate = ui->audioBitrateSlider->value();   // kbps
+    int fps          = ui->fpsSlider->value();
+
+    QString resText  = ui->resolutionCombo->currentData().toString();
+
+    int outWidth  = m_sourceInfo.width;
+    int outHeight = m_sourceInfo.height;
+
+    QStringList parts = resText.split("x");
+    if (parts.size() == 2) {
+        outWidth  = parts[0].toInt();
+        outHeight = parts[1].toInt();
+    }
+
+    QString videoBitrateArg = QString::number(videoBitrate) + "k";
+    QString audioBitrateArg = QString::number(audioBitrate) + "k";
+    QString fpsArg = QString::number(fps);
+    QString scaleFilter =
+        QString("scale=%1:%2:flags=lanczos")
+            .arg(outWidth  / 2 * 2)
+            .arg(outHeight / 2 * 2);
+
+
     QStringList compressArgs = {
         "-y",
         "-i", ffmpegInputFile,
+
+        // --- Video ---
         "-c:v", "libx264",
         "-preset", "fast",
-        "-b:v", "2550k",
-        "-r", "48",
-        "-vf", "scale=1280:720",
+        "-b:v", videoBitrateArg,
+        "-maxrate", videoBitrateArg,
+        "-bufsize", QString::number(videoBitrate * 2) + "k",
+        "-r", fpsArg,
+        "-vf", scaleFilter,
+
+        // --- Audio ---
+        "-c:a", "aac",
+        "-b:a", audioBitrateArg,
+
+        // --- MP4 optimizations ---
         "-movflags", "+faststart",
+
+        // --- Progress reporting ---
         "-progress", "pipe:1",
         "-nostats",
         "-loglevel", "error",
+
         outputFilePath
     };
+
 
     qDebug() << "Compression command:";
     qDebug() << ffmpegPath << compressArgs;

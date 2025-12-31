@@ -158,6 +158,23 @@ Player::Player(QWidget *parent)
             this, &Player::requestOpenFile);
 
     updateControlsEnabled(false);
+
+    connect(m_timeline, &TimelineWidget::startPositionChanged,
+            this, [this](qint64) {
+                emit trimChanged(
+                    m_timeline->startPosition(),
+                    m_timeline->endPosition()
+                    );
+            });
+
+    connect(m_timeline, &TimelineWidget::endPositionChanged,
+            this, [this](qint64) {
+                emit trimChanged(
+                    m_timeline->startPosition(),
+                    m_timeline->endPosition()
+                    );
+            });
+
 }
 
 // ----------------- UI State -----------------

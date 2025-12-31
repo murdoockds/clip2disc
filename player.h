@@ -28,6 +28,8 @@ public:
     qint64 trimEnd() const;
 
 signals:
+    void trimChanged(qint64 startMs, qint64 endMs);
+
     // Emitted when user clicks the overlay
     void requestOpenFile();
 

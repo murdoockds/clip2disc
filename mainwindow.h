@@ -23,6 +23,7 @@ public:
     ~MainWindow();
 
 private slots:
+    void updateMarkedDuration(qint64 startMs, qint64 endMs);
     void selectInputFile();
     void selectOutputFile();
     void startEncoding();
@@ -32,6 +33,7 @@ private slots:
 
     
 private:
+
     VideoInfo m_sourceInfo;
     VideoInfo probeVideo(const QString &filePath);
 
