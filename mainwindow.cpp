@@ -54,6 +54,67 @@ MainWindow::MainWindow(QWidget *parent)
         ui->outputButton->setEnabled(false);
         ui->startButton->setEnabled(false);
     }
+
+    connect(ui->videoBitrateSlider, &QSlider::valueChanged,
+            this, [this](int value) {
+
+                if (m_sourceInfo.videoBitrate <= 0)
+                    return;
+
+                int percent = (value * 100) / m_sourceInfo.videoBitrate;
+
+                ui->videoBitrateLabel->setText(
+                    QString("Bitrate: %1 kbps (%2%)")
+                        .arg(value)
+                        .arg(percent));
+
+                updateEstimatedFileSize();
+            });
+
+    ui->videoBitrateSlider->setSingleStep(100);
+    ui->videoBitrateSlider->setPageStep(500);
+
+    connect(ui->fpsSlider, &QSlider::valueChanged,
+            this, [this](int value) {
+
+                ui->fpsLabel->setText(
+                    QString("FPS: %1").arg(value));
+
+                updateEstimatedFileSize();
+            });
+
+    ui->fpsSlider->setEnabled(false);
+
+    connect(ui->audioBitrateSlider, &QSlider::valueChanged,
+            this, [this](int value) {
+
+                if (m_sourceInfo.audioBitrate <= 0)
+                    return;
+
+                int percent =
+                    (value * 100) / m_sourceInfo.audioBitrate;
+
+                ui->audioBitrateLabel->setText(
+                    QString("Audio bitrate: %1 kbps (%2%)")
+                        .arg(value)
+                        .arg(percent));
+
+                updateEstimatedFileSize();
+            });
+
+
+    ui->audioBitrateSlider->setSingleStep(16);
+    ui->audioBitrateSlider->setPageStep(64);
+    ui->audioBitrateSlider->setEnabled(false);
+
+    connect(ui->resolutionCombo, &QComboBox::currentIndexChanged,
+            this, [this](int) {
+
+                updateEstimatedFileSize();
+            });
+
+    ui->resolutionCombo->setEnabled(false);
+
 }
 
 MainWindow::~MainWindow()
@@ -76,47 +137,69 @@ VideoInfo MainWindow::probeVideo(const QString &filePath)
     });
 
     process.start();
-    process.waitForFinished(3000);
+    if (!process.waitForFinished(5000))
+        return info;
 
-    QByteArray output = process.readAllStandardOutput();
-    QJsonDocument doc = QJsonDocument::fromJson(output);
+    const QByteArray output = process.readAllStandardOutput();
+    const QJsonDocument doc = QJsonDocument::fromJson(output);
 
     if (!doc.isObject())
         return info;
 
-    QJsonObject root = doc.object();
+    const QJsonObject root = doc.object();
 
-    // ---- format section ----
-    QJsonObject format = root["format"].toObject();
+    // ---------- FORMAT (container) ----------
+    const QJsonObject format = root["format"].toObject();
+
     info.duration = format["duration"].toString().toDouble();
-    info.bitrate  = format["bit_rate"].toString().toLongLong();
 
-    // ---- streams section ----
-    QJsonArray streams = root["streams"].toArray();
+    // container bitrate (bits/sec → kbps)
+    if (format.contains("bit_rate")) {
+        info.bitrate = format["bit_rate"].toString().toLongLong() / 1000;
+    }
+
+    // ---------- STREAMS ----------
+    const QJsonArray streams = root["streams"].toArray();
+
     for (const QJsonValue &v : streams) {
-        QJsonObject s = v.toObject();
-        QString type = s["codec_type"].toString();
+        const QJsonObject s = v.toObject();
+        const QString type = s["codec_type"].toString();
 
         if (type == "video") {
             info.videoCodec = s["codec_name"].toString();
             info.width  = s["width"].toInt();
             info.height = s["height"].toInt();
 
-            // FPS: r_frame_rate = "30000/1001"
-            QString fpsStr = s["r_frame_rate"].toString();
+            // FPS (e.g. "30000/1001")
+            const QString fpsStr = s["r_frame_rate"].toString();
             if (fpsStr.contains("/")) {
-                auto parts = fpsStr.split("/");
-                info.fps = parts[0].toDouble() / parts[1].toDouble();
+                const auto parts = fpsStr.split("/");
+                const double num = parts.value(0).toDouble();
+                const double den = parts.value(1).toDouble();
+                if (den != 0.0)
+                    info.fps = num / den;
+            }
+
+            // video bitrate (bits/sec → kbps)
+            if (s.contains("bit_rate")) {
+                info.videoBitrate =
+                    s["bit_rate"].toString().toLongLong() / 1000;
             }
         }
-
-        if (type == "audio") {
+        else if (type == "audio") {
             info.audioCodec = s["codec_name"].toString();
+
+            // audio bitrate (bits/sec → kbps)
+            if (s.contains("bit_rate")) {
+                info.audioBitrate =
+                    s["bit_rate"].toString().toLongLong() / 1000;
+            }
         }
     }
 
     return info;
 }
+
 
 
 bool MainWindow::initializeBinaryPaths()
@@ -167,6 +250,70 @@ bool MainWindow::initializeBinaryPaths()
     return false;
 }
 
+void MainWindow::updateEstimatedFileSize()
+{
+    if (m_sourceInfo.duration <= 0) {
+        ui->fileSizeLabel->setText("—");
+        return;
+    }
+
+    // --- Selected values ---
+    int videoBitrate = ui->videoBitrateSlider->isEnabled()
+                           ? ui->videoBitrateSlider->value()
+                           : m_sourceInfo.videoBitrate;
+
+    int audioBitrate = ui->audioBitrateSlider->isEnabled()
+                           ? ui->audioBitrateSlider->value()
+                           : m_sourceInfo.audioBitrate;
+
+    int fps = ui->fpsSlider->isEnabled()
+                  ? ui->fpsSlider->value()
+                  : int(m_sourceInfo.fps);
+
+    QString res = ui->resolutionCombo->currentData().toString();
+
+    // --- Resolution scaling factor ---
+    double scaleFactor = 1.0;
+    if (!res.isEmpty()) {
+        QStringList parts = res.split("x");
+        if (parts.size() == 2) {
+            int rw = parts[0].toInt();
+            int rh = parts[1].toInt();
+
+            double originalPixels =
+                double(m_sourceInfo.width) * m_sourceInfo.height;
+            double targetPixels =
+                double(rw) * rh;
+
+            if (originalPixels > 0)
+                scaleFactor = targetPixels / originalPixels;
+        }
+    }
+
+    // --- FPS scaling ---
+    if (m_sourceInfo.fps > 0)
+        scaleFactor *= double(fps) / m_sourceInfo.fps;
+
+    // --- Final bitrate ---
+    double totalBitrateKbps =
+        (videoBitrate * scaleFactor) + audioBitrate;
+
+    if (totalBitrateKbps <= 0) {
+        ui->fileSizeLabel->setText("—");
+        return;
+    }
+
+    // --- Size calculation ---
+    double sizeMB =
+        (totalBitrateKbps * m_sourceInfo.duration) / (8.0 * 1024.0);
+
+    ui->fileSizeLabel->setText(
+        QString("File size: %1 MB")
+            .arg(sizeMB, 0, 'f', 1)
+        );
+}
+
+
 void MainWindow::selectInputFile()
 {
     inputFilePath = QFileDialog::getOpenFileName(
@@ -174,39 +321,107 @@ void MainWindow::selectInputFile()
         "Select Video File",
         "",
         "Videos (*.mp4 *.mkv *.avi *.mov)"
-    );
+        );
 
     if (inputFilePath.isEmpty())
         return;
 
     ui->inputLabel->setPlainText(inputFilePath);
 
-    VideoInfo info = probeVideo(inputFilePath);
+    m_sourceInfo = probeVideo(inputFilePath);
 
-    // Example: update UI labels
+    // ---- Static info ----
     ui->durationLabel->setText(
-        QString::number(info.duration, 'f', 1) + " s");
+        QString::number(m_sourceInfo.duration, 'f', 1) + " s");
 
-    ui->resolutionLabel->setText(
-        QString("%1x%2").arg(info.width).arg(info.height));
+    //ui->resolutionLabel->setText(
+    //    QString("%1x%2")
+    //        .arg(m_sourceInfo.width)
+    //        .arg(m_sourceInfo.height));
 
     ui->codecLabel->setText(
         QString("V: %1 | A: %2")
-            .arg(info.videoCodec)
-            .arg(info.audioCodec));
+            .arg(m_sourceInfo.videoCodec)
+            .arg(m_sourceInfo.audioCodec));
 
     ui->fpsLabel->setText(
-        QString::number(info.fps, 'f', 2) + " fps");
+        QString::number(m_sourceInfo.fps, 'f', 2) + " fps");
 
-    qDebug() << "Probed video:"
-             << info.duration
-             << info.width << "x" << info.height
-             << info.videoCodec
-             << info.audioCodec
-             << info.fps;
+    // ---- Video bitrate ----
+    const int maxVideoBitrate =
+        qMax<qint64>(1, m_sourceInfo.videoBitrate);
 
+    ui->videoBitrateSlider->setEnabled(true);
+    ui->videoBitrateSlider->setMinimum(1);
+    ui->videoBitrateSlider->setMaximum(maxVideoBitrate);
+    ui->videoBitrateSlider->setValue(maxVideoBitrate);
+
+    ui->videoBitrateLabel->setText(
+        QString("Bitrate: %1 kbps").arg(maxVideoBitrate));
+
+    // ---- FPS ----
+    const int maxFps = qMax(1, int(m_sourceInfo.fps));
+
+    ui->fpsSlider->setEnabled(true);
+    ui->fpsSlider->setMinimum(1);
+    ui->fpsSlider->setMaximum(maxFps);
+    ui->fpsSlider->setValue(maxFps);
+
+    ui->fpsLabel->setText(
+        QString("FPS: %1").arg(maxFps));
+
+    // ---- Audio bitrate ----
+    const int maxAudioBitrate =
+        qMax<qint64>(32, m_sourceInfo.audioBitrate);
+
+    ui->audioBitrateSlider->setEnabled(true);
+    ui->audioBitrateSlider->setMinimum(32);
+    ui->audioBitrateSlider->setMaximum(maxAudioBitrate);
+    ui->audioBitrateSlider->setValue(maxAudioBitrate);
+
+    ui->audioBitrateLabel->setText(
+        QString("Audio bitrate: %1 kbps").arg(maxAudioBitrate));
+
+    // ---- Resolution ----
+    ui->resolutionCombo->clear();
+
+    int w = m_sourceInfo.width;
+    int h = m_sourceInfo.height;
+
+    // Helper: avoid duplicates using itemData (not visible text)
+    auto addIfMissing = [&](const QString &resValue, const QString &resLabel) {
+        for (int i = 0; i < ui->resolutionCombo->count(); ++i) {
+            if (ui->resolutionCombo->itemData(i).toString() == resValue)
+                return;
+        }
+        ui->resolutionCombo->addItem(resLabel, resValue);
+    };
+
+    // Original resolution (pretty label, clean data)
+    QString originalRes = QString("%1x%2").arg(w).arg(h);
+    addIfMissing(originalRes, originalRes + " (Original)");
+
+    // Common downscale options
+    if (w >= 1920 && h >= 1080)
+        addIfMissing("1920x1080", "1920x1080");
+
+    if (w >= 1280 && h >= 720)
+        addIfMissing("1280x720", "1280x720");
+
+    if (w >= 854 && h >= 480)
+        addIfMissing("854x480", "854x480");
+
+    if (w >= 640 && h >= 360)
+        addIfMissing("640x360", "640x360");
+
+    // Default to original
+    ui->resolutionCombo->setCurrentIndex(0);
+    ui->resolutionCombo->setEnabled(true);
+
+    updateEstimatedFileSize();
+
+    // ---- Output path ----
     QFileInfo inputInfo(inputFilePath);
-
     outputFilePath =
         inputInfo.absolutePath() + "/" +
         inputInfo.completeBaseName() +
@@ -214,10 +429,8 @@ void MainWindow::selectInputFile()
 
     ui->outputLabel->setPlainText(outputFilePath);
 
-    // 🔥 This is the key line
+    // ---- Player ----
     m_player->setSourceFile(inputFilePath);
-
-    qDebug() << "Auto-filled output file:" << outputFilePath;
 }
 
 

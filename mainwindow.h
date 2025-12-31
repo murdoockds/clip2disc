@@ -28,8 +28,11 @@ private slots:
     void startEncoding();
     void updateProgress();
     void showAboutDialog();
+    void updateEstimatedFileSize();
+
     
 private:
+    VideoInfo m_sourceInfo;
     VideoInfo probeVideo(const QString &filePath);
 
     Ui::MainWindow *ui;
