@@ -5,10 +5,9 @@
 TimelineWidget::TimelineWidget(QWidget *parent)
     : QWidget(parent)
 {
-    setMinimumHeight(70);   // ⬅ wider / thicker timeline
+    setMinimumHeight(30);   // Thicker timeline
     setMouseTracking(true);
 }
-
 
 void TimelineWidget::setDuration(qint64 durationMs)
 {
@@ -21,11 +20,41 @@ void TimelineWidget::setDuration(qint64 durationMs)
 
 void TimelineWidget::setPlayPosition(qint64 positionMs)
 {
-    // 🔥 Don't fight user while dragging play handle
+    // Don't fight user while dragging play handle
     if (m_activeHandle == Play)
         return;
 
     m_play = qBound(m_start, positionMs, m_end);
+    update();
+}
+
+/* 🔹 NEW: external setters (buttons) */
+
+void TimelineWidget::setStartPosition(qint64 positionMs)
+{
+    m_start = qBound<qint64>(0, positionMs, m_end);
+
+    // If start overtakes playhead, clamp playhead
+    if (m_play < m_start) {
+        m_play = m_start;
+        emit playPositionChanged(m_play);
+    }
+
+    emit startPositionChanged(m_start);
+    update();
+}
+
+void TimelineWidget::setEndPosition(qint64 positionMs)
+{
+    m_end = qBound<qint64>(m_start, positionMs, m_duration);
+
+    // If end moves before playhead, clamp playhead
+    if (m_play > m_end) {
+        m_play = m_end;
+        emit playPositionChanged(m_play);
+    }
+
+    emit endPositionChanged(m_end);
     update();
 }
 
@@ -60,10 +89,9 @@ void TimelineWidget::paintEvent(QPaintEvent *)
     const int trackHeight = 16;
     const int handleRadius = 7;
     const int centerY = height() / 2;
-
     const int trackTop = centerY - trackHeight / 2;
 
-    // --- Base track ---
+    // --- Base track (ALWAYS visible) ---
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(50, 50, 50));
     p.drawRoundedRect(
@@ -74,6 +102,10 @@ void TimelineWidget::paintEvent(QPaintEvent *)
         6,
         6
         );
+
+    // 🚫 No media loaded → stop here
+    if (m_duration == 0)
+        return;
 
     // --- Active (trim) range ---
     const int xStart = positionToX(m_start);
@@ -90,17 +122,12 @@ void TimelineWidget::paintEvent(QPaintEvent *)
         );
 
     // --- Start / End handles ---
-    auto drawHandle = [&](int x) {
-        p.setBrush(Qt::white);
-        p.drawEllipse(QPoint(x, centerY), handleRadius, handleRadius);
-    };
+    p.setBrush(Qt::white);
+    p.drawEllipse(QPoint(xStart, centerY), handleRadius, handleRadius);
+    p.drawEllipse(QPoint(xEnd,   centerY), handleRadius, handleRadius);
 
-    drawHandle(xStart);
-    drawHandle(xEnd);
-
-    // --- Playhead (vertical line) ---
+    // --- Playhead ---
     const int playX = positionToX(m_play);
-
     p.setPen(QPen(Qt::red, 2));
     p.drawLine(
         playX,
@@ -134,7 +161,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent *e)
         return;
     }
 
-    // 2️⃣ Click inside active (blue) range → move playhead
+    // 2️⃣ Click inside active (blue) range → seek
     if (clickedPos >= m_start && clickedPos <= m_end) {
         m_play = clickedPos;
         emit playPositionChanged(m_play);
@@ -142,10 +169,8 @@ void TimelineWidget::mousePressEvent(QMouseEvent *e)
         return;
     }
 
-    // 3️⃣ Otherwise: nothing
     m_activeHandle = None;
 }
-
 
 void TimelineWidget::mouseMoveEvent(QMouseEvent *e)
 {
@@ -157,7 +182,7 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent *e)
     if (m_activeHandle == Start) {
         const qint64 newStart = qMin(pos, m_end);
 
-        // 🎯 If start is pushed past playhead, move playhead with it
+        // If pushing start forward past playhead → drag playhead
         if (newStart > m_start && newStart >= m_play) {
             m_play = newStart;
             emit playPositionChanged(m_play);
@@ -168,7 +193,7 @@ void TimelineWidget::mouseMoveEvent(QMouseEvent *e)
     }
     else if (m_activeHandle == Play) {
         m_play = qBound(m_start, pos, m_end);
-        emit playPositionChanged(m_play);  // 🔥 continuous seek
+        emit playPositionChanged(m_play);
     }
     else if (m_activeHandle == End) {
         m_end = qMax(pos, m_start);

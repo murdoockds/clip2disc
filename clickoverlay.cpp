@@ -10,9 +10,9 @@ ClickOverlay::ClickOverlay(QWidget *parent)
     setAttribute(Qt::WA_StyledBackground);
     setStyleSheet("background-color: black;");
 
-    auto *label = new QLabel(tr("Click to select video"), this);
-    label->setAlignment(Qt::AlignCenter);
-    label->setStyleSheet(
+    m_label = new QLabel(tr("Click to select video"), this);
+    m_label->setAlignment(Qt::AlignCenter);
+    m_label->setStyleSheet(
         "color: white;"
         "font-size: 18px;"
         "font-weight: 500;"
@@ -20,8 +20,13 @@ ClickOverlay::ClickOverlay(QWidget *parent)
 
     auto *layout = new QVBoxLayout(this);
     layout->addStretch();
-    layout->addWidget(label);
+    layout->addWidget(m_label);
     layout->addStretch();
+}
+
+void ClickOverlay::showText(bool visible)
+{
+    m_label->setVisible(visible);
 }
 
 void ClickOverlay::mousePressEvent(QMouseEvent *event)

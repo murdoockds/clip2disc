@@ -16,11 +16,12 @@ class Player : public QWidget
     Q_OBJECT
 
 public:
-    void pause();
     explicit Player(QWidget *parent = nullptr);
 
     void setSource(const QUrl &url);
     void setSourceFile(const QString &filePath);
+
+    void pause();
 
     // Expose trim values for MainWindow later
     qint64 trimStart() const;
@@ -31,18 +32,38 @@ signals:
     void requestOpenFile();
 
 private:
-    bool m_autoPlayPending;
-    bool m_reachedTrimEnd = false;
+    void updateControlsEnabled(bool enabled);
+    bool m_hasMedia = false;
 
-    // Core media objects
-    QMediaPlayer  *m_player = nullptr;
-    QAudioOutput  *m_audioOutput = nullptr;
-    QVideoWidget  *m_videoWidget = nullptr;
+    // --- Playback helpers ---
+    void play();
+    void stop();
+    void goToStart();
+    void stepFrameForward();
+    void stepFrameBackward();
+    void markStartAtCurrentFrame();
+    void markEndAtCurrentFrame();
 
-    // UI
-    QPushButton   *m_playPauseButton = nullptr;
-    ClickOverlay  *m_overlay = nullptr;
-    TimelineWidget *m_timeline = nullptr;
+    // --- State ---
+    bool m_autoPlayPending = false;
+    bool m_reachedTrimEnd  = false;
+
+    // --- Core media objects ---
+    QMediaPlayer   *m_player      = nullptr;
+    QAudioOutput   *m_audioOutput = nullptr;
+    QVideoWidget   *m_videoWidget = nullptr;
+
+    // --- UI ---
+    TimelineWidget *m_timeline        = nullptr;
+    ClickOverlay   *m_overlay         = nullptr;
+
+    QPushButton    *m_btnGoToStart    = nullptr;
+    QPushButton    *m_btnPrevFrame    = nullptr;
+    QPushButton    *m_btnSetStart     = nullptr;
+    QPushButton    *m_btnPlayPause    = nullptr;
+    QPushButton    *m_btnSetEnd       = nullptr;
+    QPushButton    *m_btnNextFrame    = nullptr;
+    QPushButton    *m_btnStop         = nullptr;
 };
 
 #endif // PLAYER_H

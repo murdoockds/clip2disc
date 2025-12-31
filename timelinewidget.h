@@ -9,16 +9,25 @@ class TimelineWidget : public QWidget
 public:
     explicit TimelineWidget(QWidget *parent = nullptr);
 
+    // Core setters
     void setDuration(qint64 durationMs);
     void setPlayPosition(qint64 positionMs);
 
+    // 🔹 NEW: external control from buttons
+    void setStartPosition(qint64 positionMs);
+    void setEndPosition(qint64 positionMs);
+
+    // Getters
     qint64 startPosition() const;
     qint64 endPosition() const;
 
 signals:
-    void playPositionChanged(qint64);
-    void startPositionChanged(qint64);
-    void endPositionChanged(qint64);
+    // Playback scrub / click
+    void playPositionChanged(qint64 positionMs);
+
+    // Trim handles
+    void startPositionChanged(qint64 positionMs);
+    void endPositionChanged(qint64 positionMs);
 
 protected:
     void paintEvent(QPaintEvent *) override;
@@ -27,7 +36,13 @@ protected:
     void mouseReleaseEvent(QMouseEvent *) override;
 
 private:
-    enum Handle { None, Start, Play, End };
+    enum Handle {
+        None,
+        Start,
+        Play,
+        End
+    };
+
     Handle m_activeHandle = None;
 
     qint64 m_duration = 0;
@@ -35,8 +50,9 @@ private:
     qint64 m_play = 0;
     qint64 m_end = 0;
 
+    // Helpers
     int positionToX(qint64 pos) const;
     qint64 xToPosition(int x) const;
 };
 
-#endif
+#endif // TIMELINEWIDGET_H

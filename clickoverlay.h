@@ -12,6 +12,8 @@ class ClickOverlay : public QWidget
 public:
     explicit ClickOverlay(QWidget *parent = nullptr);
 
+    void showText(bool visible);
+    QLabel *m_label;
 signals:
     void clicked();
 
