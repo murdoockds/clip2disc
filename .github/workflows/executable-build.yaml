@@ -162,7 +162,7 @@ jobs:
       - name: Download linuxdeployqt
         run: |
           wget -O /tmp/linuxdeployqt.AppImage \
-            https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-x86_64.AppImage
+            https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
           chmod +x /tmp/linuxdeployqt.AppImage
 
       # Deploy AppImage
