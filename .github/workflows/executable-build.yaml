@@ -115,54 +115,55 @@ jobs:
           if-no-files-found: ignore
 
   build-linux:
-    needs: versioning
-    runs-on: ubuntu-22.04
+    name: Build Linux AppImage
+    runs-on: ubuntu-latest
+    if: github.event.release.tag_name != null
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Install Build Dependencies
-        run: |
-          # Add the missing Jammy GPG key
-          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C || true
-          
-          # Then update and install dependencies
-          sudo apt update
-          sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev \
-            libgl1-mesa-dev libglu1-mesa-dev libpulse-dev libasound2-dev wget patchelf squashfs-tools
-
-      - name: Prepare Build Directory
-        run: mkdir -p build
-
-      - name: Build Qt App
-        working-directory: build
-        run: |
-          cmake .. -DCMAKE_BUILD_TYPE=Release
-          cmake --build . -j$(nproc)
-
-      - name: Copy App Files to AppDir
-        run: |
-          mkdir -p AppDir/usr/bin
-          cp build/clip2disc AppDir/usr/bin/
-          mkdir -p AppDir/usr/share/applications
-          cp resources/clip2disc.desktop AppDir/usr/share/applications/
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          cp resources/images/clip2disc.png AppDir/usr/share/icons/hicolor/256x256/apps/
-
-      - name: Build AppImage
-        uses: AppImageCrafters/build-appimage@master
+      - uses: actions/checkout@v3
         with:
-          recipe: "./AppImageBuilder.yml"
-          args: --skip-tests
-        env:
-          UPDATE_INFO: gh-releases-zsync|JoaoMacedo|clip2disc|latest|*x86_64.AppImage.zsync
-          VERSION: ${{ needs.versioning.outputs.VERSION }}
+          fetch-depth: 0
+          submodules: false
+
+      # Ensure we have the release tags
+      - name: Fix tags for release
+        run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
+
+      # Install squashfs-tools (needed by AppImageBuilder)
+      - name: Install squashfs-tools
+        run: sudo apt update && sudo apt install -y squashfs-tools
+
+      # Download linuxdeploy if you want to bundle the app manually
+      - name: Download linuxdeploy
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x linuxdeploy-x86_64.AppImage
+          mv linuxdeploy-x86_64.AppImage /tmp/linuxdeploy-x86_64.AppImage
+
+      # Optional: setup ccache for faster builds
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: appimage
+          restore-keys: |
+            appimage
+      - name: Prepend ccache to PATH
+        run: echo /usr/lib/ccache >> $GITHUB_PATH
+      - name: Update ccache symlinks
+        run: /usr/sbin/update-ccache-symlinks
+
+      # Build your project with AppImageBuilder
+      - name: Build AppImage
+        run: |
+          ./AppImageBuilder.AppImage \
+            --recipe ./AppImageBuilder.yml \
+            --skip-tests \
+            --skip-apt
 
       - name: Upload AppImage
         uses: actions/upload-artifact@v4
         with:
           name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
-          path: ./out/clip2disc*.AppImage
+          path: ./output/YourAppName-x86_64.AppImage
           if-no-files-found: error
 
 
