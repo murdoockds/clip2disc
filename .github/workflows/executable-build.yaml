@@ -77,8 +77,7 @@ jobs:
           arch: 'win64_mingw'
           tools: 'tools_mingw1310'
           aqtversion: '==3.1.19'
-          components: qtbase,qtmultimedia,qttools
-
+          modules: 'addons.qtmultimedia'
 
       - name: Checkout Repository
         uses: actions/checkout@v4
