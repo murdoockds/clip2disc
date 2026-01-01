@@ -149,6 +149,8 @@ jobs:
 
       - name: Create AppImage
         run: |
+          # Make sure qmake6 is in PATH for linuxdeployqt
+          export PATH=/usr/lib/qt6/bin:$PATH
           APPDIR=$GITHUB_WORKSPACE/clip2disc.AppDir
           ./linuxdeployqt-continuous-x86_64.AppImage $APPDIR/usr/bin/clip2disc -appimage
           # This will create clip2disc-x86_64.AppImage in the current directory
@@ -159,6 +161,7 @@ jobs:
           name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
           path: clip2disc-x86_64.AppImage
           if-no-files-found: error
+
 
 
   release:
