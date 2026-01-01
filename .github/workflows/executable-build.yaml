@@ -131,6 +131,7 @@ jobs:
       - name: Install squashfs-tools
         run: sudo apt update && sudo apt install -y squashfs-tools
 
+
       # Download linuxdeploy if you want to bundle the app manually
       - name: Download linuxdeploy
         run: |
@@ -149,6 +150,12 @@ jobs:
         run: echo /usr/lib/ccache >> $GITHUB_PATH
       - name: Update ccache symlinks
         run: /usr/sbin/update-ccache-symlinks
+
+      - name: Download AppImageBuilder
+        run: |
+          wget -q https://github.com/AppImage/AppImageBuilder/releases/download/continuous/AppImageBuilder-x86_64.AppImage
+          chmod +x AppImageBuilder-x86_64.AppImage
+          mv AppImageBuilder-x86_64.AppImage ./AppImageBuilder.AppImage
 
       # Build your project with AppImageBuilder
       - name: Build AppImage
