@@ -141,7 +141,7 @@ jobs:
             liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
             libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
             libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools \
-            qt6-multimedia-dev qt6-multimediawidgets-dev
+            qt6-multimedia-dev qt6-multimedia-dev
 
 
       # Setup ccache
