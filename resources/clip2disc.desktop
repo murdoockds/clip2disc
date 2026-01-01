@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Clip2Disc
+Comment=Record and manage clips
+Exec=clip2disc
+Icon=clip2disc
+Terminal=false
+Type=Application
+Categories=Utility;

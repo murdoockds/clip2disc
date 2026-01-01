@@ -114,55 +114,60 @@ jobs:
           path: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
           if-no-files-found: ignore
 
-  build-linux:
-    needs: versioning
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+build-linux:
+  needs: versioning
+  runs-on: ubuntu-22.04
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Install Dependencies
-        run: |
-          sudo apt update
-          sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev \
-            libgl1-mesa-dev libglu1-mesa-dev libpulse-dev libasound2-dev wget patchelf
+    - name: Install Dependencies
+      run: |
+        sudo apt update
+        sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev \
+          libgl1-mesa-dev libglu1-mesa-dev libpulse-dev libasound2-dev wget patchelf imagemagick
 
-      - name: Prepare Build Directory
-        run: mkdir -p build
+    - name: Prepare Build Directory
+      run: mkdir -p build
 
-      - name: Build Qt App
-        working-directory: build
-        run: |
-          cmake .. -DCMAKE_BUILD_TYPE=Release
-          cmake --build . -j$(nproc)
+    - name: Build Qt App
+      working-directory: build
+      run: |
+        cmake .. -DCMAKE_BUILD_TYPE=Release
+        cmake --build . -j$(nproc)
 
-      - name: Prepare AppDir
-        run: |
-          APPDIR=$GITHUB_WORKSPACE/clip2disc.AppDir
-          mkdir -p $APPDIR/usr/bin
-          cp build/clip2disc $APPDIR/usr/bin/
+    - name: Prepare AppDir
+      run: |
+        APPDIR=$GITHUB_WORKSPACE/clip2disc.AppDir
+        mkdir -p $APPDIR/usr/bin
+        cp build/clip2disc $APPDIR/usr/bin/
 
-      - name: Download linuxdeployqt
-        run: |
-          wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
-          chmod +x linuxdeployqt-continuous-x86_64.AppImage
+        # Copy Desktop Entry
+        mkdir -p $APPDIR/usr/share/applications
+        cp resources/clip2disc.desktop $APPDIR/usr/share/applications/
 
-      - name: Create AppImage
-        run: |
-          # Make sure qmake6 is in PATH for linuxdeployqt
-          export PATH=/usr/lib/qt6/bin:$PATH
-          APPDIR=$GITHUB_WORKSPACE/clip2disc.AppDir
-          ./linuxdeployqt-continuous-x86_64.AppImage $APPDIR/usr/bin/clip2disc -appimage
-          # This will create clip2disc-x86_64.AppImage in the current directory
+        # Convert ICO to PNG for AppImage
+        mkdir -p $APPDIR/usr/share/icons/hicolor/256x256/apps
+        convert resources/images/clip2disc.ico -resize 256x256 $APPDIR/usr/share/icons/hicolor/256x256/apps/clip2disc.png
 
-      - name: Upload AppImage Artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
-          path: clip2disc-x86_64.AppImage
-          if-no-files-found: error
+    - name: Download linuxdeployqt
+      run: |
+        wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+        chmod +x linuxdeployqt-continuous-x86_64.AppImage
 
+    - name: Create AppImage
+      run: |
+        export PATH=/usr/lib/qt6/bin:$PATH
+        APPDIR=$GITHUB_WORKSPACE/clip2disc.AppDir
+        ./linuxdeployqt-continuous-x86_64.AppImage $APPDIR/usr/bin/clip2disc -appimage
+        # This will create clip2disc-x86_64.AppImage in the current directory
 
+    - name: Upload AppImage Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
+        path: clip2disc-x86_64.AppImage
+        if-no-files-found: error
 
   release:
     if: github.event_name == 'workflow_dispatch'
