@@ -4,5 +4,5 @@ Name=clip2disc
 Exec=clip2disc
 Icon=clip2disc
 Comment=Clip2Disc - Record your screen
-Categories=AudioVideo;Recording;
+Categories=AudioVideo;
 Terminal=false

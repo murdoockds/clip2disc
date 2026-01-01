@@ -177,7 +177,7 @@ jobs:
       # Deploy AppImage
       - name: Run linuxdeployqt
         run: |
-          QT_SELECT=qt5 /tmp/linuxdeployqt.AppImage \
+          /tmp/linuxdeployqt.AppImage \
             resources/clip2disc.desktop \
             -appimage \
             -bundle-non-qt-libs \
