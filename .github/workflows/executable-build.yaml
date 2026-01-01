@@ -149,6 +149,7 @@ jobs:
         uses: AppImageCrafters/build-appimage@master
         with:
           recipe: "./AppImageBuilder.yml"
+          args: --skip-test --apt-install squashfs-tools
         env:
           UPDATE_INFO: gh-releases-zsync|JoaoMacedo|clip2disc|latest|*x86_64.AppImage.zsync
           VERSION: ${{ needs.versioning.outputs.VERSION }}
