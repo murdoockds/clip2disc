@@ -81,13 +81,27 @@ Player::Player(QWidget *parent)
             this, [this](qint64 pos) { m_player->setPosition(pos); });
 
     // --- Buttons ---
-    m_btnGoToStart = new QPushButton(style()->standardIcon(QStyle::SP_MediaSkipBackward), "", this);
-    m_btnPrevFrame = new QPushButton("⏮︎", this);
-    m_btnSetStart  = new QPushButton("[", this);
-    m_btnPlayPause = new QPushButton(style()->standardIcon(QStyle::SP_MediaPlay), "", this);
-    m_btnSetEnd    = new QPushButton("]", this);
-    m_btnNextFrame = new QPushButton("⏭︎", this);
-    m_btnStop      = new QPushButton(style()->standardIcon(QStyle::SP_MediaStop), "", this);
+    m_btnGoToStart = new QPushButton(this);
+    m_btnGoToStart->setIcon(style()->standardIcon(QStyle::SP_MediaSkipBackward));
+
+    m_btnPrevFrame = new QPushButton(this);
+    m_btnPrevFrame->setIcon(style()->standardIcon(QStyle::SP_MediaSeekBackward));
+
+    m_btnSetStart = new QPushButton(this);
+    m_btnSetStart->setIcon(style()->standardIcon(QStyle::SP_ArrowForward));
+
+    m_btnPlayPause = new QPushButton(this);
+    m_btnPlayPause->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
+
+    m_btnSetEnd = new QPushButton(this);
+    m_btnSetEnd->setIcon(style()->standardIcon(QStyle::SP_ArrowBack));
+
+    m_btnNextFrame = new QPushButton(this);
+    m_btnNextFrame->setIcon(style()->standardIcon(QStyle::SP_MediaSeekForward));
+
+    m_btnStop = new QPushButton(this);
+    m_btnStop->setIcon(style()->standardIcon(QStyle::SP_MediaStop));
+
 
     connect(m_btnGoToStart, &QPushButton::clicked, this, &Player::goToStart);
     connect(m_btnPrevFrame, &QPushButton::clicked, this, &Player::stepFrameBackward);
