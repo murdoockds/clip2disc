@@ -161,13 +161,13 @@ jobs:
         run: make -j$(nproc) appimage
         working-directory: ${{ github.workspace }}
 
-    # Upload AppImage as artifact
-    - name: Upload AppImage Artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: clip2disc_${{ github.event.release.tag_name }}_AppImage
-        path: ${{ github.workspace }}/stone_soup-latest-linux-console.x86_64.AppImage
-        if-no-files-found: ignore
+      # Upload AppImage as artifact
+      - name: Upload AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clip2disc_${{ github.event.release.tag_name }}_AppImage
+          path: ${{ github.workspace }}/stone_soup-latest-linux-console.x86_64.AppImage
+          if-no-files-found: ignore
 
   release:
     if: github.event_name == 'workflow_dispatch'
