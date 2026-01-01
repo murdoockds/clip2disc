@@ -10,6 +10,7 @@
 #include <QHBoxLayout>
 #include <QStackedLayout>
 #include <QStyle>
+#include <QLabel>
 
 static constexpr qint64 FRAME_STEP_MS = 40; // ~25fps fallback
 
@@ -133,9 +134,28 @@ Player::Player(QWidget *parent)
         }
     });
 
-    // --- Controls layout ---
+    // --- Volume slider ---
+    m_volumeSlider = new QSlider(Qt::Horizontal, this);
+    m_volumeSlider->setRange(0, 100);  // 0% - 100%
+    m_volumeSlider->setValue(50);
+    m_audioOutput->setVolume(0.5);
+
+    connect(m_volumeSlider, &QSlider::valueChanged, this, [this](int value){
+        m_audioOutput->setVolume(value / 100.0);
+    });
+
+    // --- Volume label ---
+    QLabel *volumeLabel = new QLabel("🔊", this);   // speaker emoji
+    volumeLabel->setAlignment(Qt::AlignCenter);
+    volumeLabel->setFixedWidth(20);  // adjust to your taste
+
+
+    // --- Controls layout (slider on the left) ---
     auto *controlsLayout = new QHBoxLayout;
-    controlsLayout->addStretch();
+    // add speaker emoji label first
+    controlsLayout->addWidget(volumeLabel);
+    controlsLayout->addWidget(m_volumeSlider);  // <-- horizontal slider first
+    controlsLayout->addSpacing(10);             // optional space
     controlsLayout->addWidget(m_btnGoToStart);
     controlsLayout->addWidget(m_btnSetStart);
     controlsLayout->addWidget(m_btnPrevFrame);

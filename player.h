@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QUrl>
+#include <QSlider>
 
 class QMediaPlayer;
 class QAudioOutput;
@@ -66,6 +67,8 @@ private:
     QPushButton    *m_btnSetEnd       = nullptr;
     QPushButton    *m_btnNextFrame    = nullptr;
     QPushButton    *m_btnStop         = nullptr;
+
+    QSlider *m_volumeSlider;  // <--- new
 };
 
 #endif // PLAYER_H
