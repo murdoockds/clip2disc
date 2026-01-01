@@ -115,7 +115,7 @@ jobs:
           if-no-files-found: ignore
 
   build-linux:
-    name: Build Linux AppImage
+    needs: versioning
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
