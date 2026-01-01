@@ -27,21 +27,19 @@ Player::Player(QWidget *parent)
     m_videoWidget->setStyleSheet("background-color: black;");
     m_player->setVideoOutput(m_videoWidget);
 
-    // --- Overlay ---
-    m_overlay = new ClickOverlay(m_videoWidget);  // parent = video widget
-    m_overlay->setGeometry(m_videoWidget->rect());
-    m_overlay->raise();
-    m_overlay->show();
-
-    // --- Stack video + overlay ---
-    auto *videoStack = new QStackedLayout;
+    // --- Video container ---
+    auto *videoContainer = new QWidget(this);
+    auto *videoStack = new QStackedLayout(videoContainer);
     videoStack->setContentsMargins(0, 0, 0, 0);
     videoStack->setStackingMode(QStackedLayout::StackAll);
     videoStack->addWidget(m_videoWidget);
-    videoStack->addWidget(m_overlay);
-
-    auto *videoContainer = new QWidget(this);
     videoContainer->setLayout(videoStack);
+
+    // --- Overlay ---
+    m_overlay = new ClickOverlay(videoContainer);  // parent = container
+    m_overlay->setGeometry(videoContainer->rect());
+    m_overlay->raise();
+    m_overlay->show();
 
     // --- Timeline ---
     m_timeline = new TimelineWidget(this);
@@ -50,80 +48,52 @@ Player::Player(QWidget *parent)
     connect(m_player, &QMediaPlayer::durationChanged,
             m_timeline, &TimelineWidget::setDuration);
 
-    // --- Autoplay ONCE after media loads ---
     connect(m_player, &QMediaPlayer::mediaStatusChanged,
             this, [this](QMediaPlayer::MediaStatus status) {
-
-                if ((status == QMediaPlayer::LoadedMedia ||
-                     status == QMediaPlayer::BufferedMedia) &&
+                if ((status == QMediaPlayer::LoadedMedia || status == QMediaPlayer::BufferedMedia) &&
                     m_autoPlayPending) {
-
                     m_autoPlayPending = false;
                     m_hasMedia = true;
-
                     updateControlsEnabled(true);
-
                     m_player->setPosition(m_timeline->startPosition());
                     play();
                 }
             });
 
-    // --- Stop cleanly at trim end ---
     connect(m_player, &QMediaPlayer::positionChanged,
             this, [this](qint64 pos) {
-
                 if (m_reachedTrimEnd)
                     return;
 
                 const qint64 end = m_timeline->endPosition();
-
-                if (m_player->playbackState() == QMediaPlayer::PlayingState &&
-                    pos >= end) {
-
+                if (m_player->playbackState() == QMediaPlayer::PlayingState && pos >= end) {
                     m_player->pause();
                     m_player->setPosition(end);
                     m_reachedTrimEnd = true;
-
-                    m_btnPlayPause->setIcon(
-                        style()->standardIcon(QStyle::SP_MediaPlay)
-                        );
+                    m_btnPlayPause->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
                     return;
                 }
-
                 m_timeline->setPlayPosition(pos);
             });
 
-    // --- Continuous seek from timeline ---
     connect(m_timeline, &TimelineWidget::playPositionChanged,
-            this, [this](qint64 pos) {
-                m_player->setPosition(pos);
-            });
+            this, [this](qint64 pos) { m_player->setPosition(pos); });
 
     // --- Buttons ---
-    m_btnGoToStart = new QPushButton(
-        style()->standardIcon(QStyle::SP_MediaSkipBackward), "", this);
+    m_btnGoToStart = new QPushButton(style()->standardIcon(QStyle::SP_MediaSkipBackward), "", this);
     m_btnPrevFrame = new QPushButton("⏮︎", this);
     m_btnSetStart  = new QPushButton("[", this);
-    m_btnPlayPause = new QPushButton(
-        style()->standardIcon(QStyle::SP_MediaPlay), "", this);
+    m_btnPlayPause = new QPushButton(style()->standardIcon(QStyle::SP_MediaPlay), "", this);
     m_btnSetEnd    = new QPushButton("]", this);
     m_btnNextFrame = new QPushButton("⏭︎", this);
-    m_btnStop      = new QPushButton(
-        style()->standardIcon(QStyle::SP_MediaStop), "", this);
+    m_btnStop      = new QPushButton(style()->standardIcon(QStyle::SP_MediaStop), "", this);
 
-    // --- Button connections ---
-    connect(m_btnGoToStart, &QPushButton::clicked,
-            this, &Player::goToStart);
-    connect(m_btnPrevFrame, &QPushButton::clicked,
-            this, &Player::stepFrameBackward);
-    connect(m_btnNextFrame, &QPushButton::clicked,
-            this, &Player::stepFrameForward);
-    connect(m_btnSetStart, &QPushButton::clicked,
-            this, &Player::markStartAtCurrentFrame);
-    connect(m_btnSetEnd, &QPushButton::clicked,
-            this, &Player::markEndAtCurrentFrame);
-    connect(m_btnStop, &QPushButton::clicked,
-            this, &Player::stop);
+    connect(m_btnGoToStart, &QPushButton::clicked, this, &Player::goToStart);
+    connect(m_btnPrevFrame, &QPushButton::clicked, this, &Player::stepFrameBackward);
+    connect(m_btnNextFrame, &QPushButton::clicked, this, &Player::stepFrameForward);
+    connect(m_btnSetStart, &QPushButton::clicked, this, &Player::markStartAtCurrentFrame);
+    connect(m_btnSetEnd, &QPushButton::clicked, this, &Player::markEndAtCurrentFrame);
+    connect(m_btnStop, &QPushButton::clicked, this, &Player::stop);
 
     connect(m_btnPlayPause, &QPushButton::clicked, this, [this] {
         if (m_player->playbackState() == QMediaPlayer::PlayingState) {
@@ -139,7 +109,7 @@ Player::Player(QWidget *parent)
 
     // --- Volume slider ---
     m_volumeSlider = new QSlider(Qt::Horizontal, this);
-    m_volumeSlider->setRange(0, 100);  // 0% - 100%
+    m_volumeSlider->setRange(0, 100);
     m_volumeSlider->setValue(50);
     m_audioOutput->setVolume(0.5);
 
@@ -147,18 +117,15 @@ Player::Player(QWidget *parent)
         m_audioOutput->setVolume(value / 100.0);
     });
 
-    // --- Volume label ---
-    QLabel *volumeLabel = new QLabel("🔊", this);   // speaker emoji
+    QLabel *volumeLabel = new QLabel("🔊", this);
     volumeLabel->setAlignment(Qt::AlignCenter);
-    volumeLabel->setFixedWidth(20);  // adjust to your taste
+    volumeLabel->setFixedWidth(20);
 
-
-    // --- Controls layout (slider on the left) ---
+    // --- Controls layout ---
     auto *controlsLayout = new QHBoxLayout;
-    // add speaker emoji label first
     controlsLayout->addWidget(volumeLabel);
-    controlsLayout->addWidget(m_volumeSlider);  // <-- horizontal slider first
-    controlsLayout->addSpacing(10);             // optional space
+    controlsLayout->addWidget(m_volumeSlider);
+    controlsLayout->addSpacing(10);
     controlsLayout->addWidget(m_btnGoToStart);
     controlsLayout->addWidget(m_btnSetStart);
     controlsLayout->addWidget(m_btnPrevFrame);
@@ -177,37 +144,26 @@ Player::Player(QWidget *parent)
     setLayout(mainLayout);
 
     // --- Overlay click ---
-    connect(m_overlay, &ClickOverlay::clicked,
-            this, &Player::requestOpenFile);
+    connect(m_overlay, &ClickOverlay::clicked, this, &Player::requestOpenFile);
 
     updateControlsEnabled(false);
 
-    connect(m_timeline, &TimelineWidget::startPositionChanged,
-            this, [this](qint64) {
-                emit trimChanged(
-                    m_timeline->startPosition(),
-                    m_timeline->endPosition()
-                    );
-            });
+    connect(m_timeline, &TimelineWidget::startPositionChanged, this, [this](qint64){
+        emit trimChanged(m_timeline->startPosition(), m_timeline->endPosition());
+    });
 
-    connect(m_timeline, &TimelineWidget::endPositionChanged,
-            this, [this](qint64) {
-                emit trimChanged(
-                    m_timeline->startPosition(),
-                    m_timeline->endPosition()
-                    );
-            });
-
+    connect(m_timeline, &TimelineWidget::endPositionChanged, this, [this](qint64){
+        emit trimChanged(m_timeline->startPosition(), m_timeline->endPosition());
+    });
 }
 
 void Player::resizeEvent(QResizeEvent *event)
 {
-    QWidget::resizeEvent(event);  // call base implementation
+    QWidget::resizeEvent(event);
 
-    if (m_overlay && m_videoWidget)
-        m_overlay->setGeometry(m_videoWidget->rect());
+    if (m_overlay)
+        m_overlay->setGeometry(m_overlay->parentWidget()->rect());
 }
-
 
 // ----------------- UI State -----------------
 

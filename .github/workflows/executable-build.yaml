@@ -145,12 +145,7 @@ jobs:
           sudo apt-get install -y build-essential libncursesw5-dev bison flex \
             liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
             libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
-            libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools \
-            qt6-multimedia-dev
-          QT_SELECT=qt5 qmake -v
-          QT_SELECT=qt6 qmake -v
-          sudo ln -sf $(which qmake6) /usr/bin/qmake
-          qmake -v
+            libpng-dev fonts-dejavu libfuse2
 
       # Setup ccache
       - uses: hendrikmuhs/ccache-action@v1.2
@@ -178,7 +173,6 @@ jobs:
         run: |
           mkdir -p build
           cp resources/images/clip2disc.png build/clip2disc.png
-
 
       # Deploy AppImage
       - name: Run linuxdeployqt
