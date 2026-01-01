@@ -141,8 +141,7 @@ jobs:
             liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
             libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
             libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools \
-            qt6-multimedia-dev qt6-multimedia-dev
-
+            qt6-multimedia-dev
 
       # Setup ccache
       - uses: hendrikmuhs/ccache-action@v1.2
@@ -153,17 +152,11 @@ jobs:
       - name: Setup ccache path
         run: echo /usr/lib/ccache >> $GITHUB_PATH
 
-      # Build project with CMake
+      # Configure and build project with CMake
       - name: Configure and Build
         run: |
           cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
           cmake --build build -j$(nproc)
-
-      # Install into AppDir
-      - name: Install into AppDir
-        run: |
-          mkdir -p AppDir
-          cmake --install build --prefix /usr DESTDIR=$PWD/AppDir
 
       # Download linuxdeployqt
       - name: Download linuxdeployqt
@@ -176,7 +169,7 @@ jobs:
       - name: Run linuxdeployqt
         run: |
           /tmp/linuxdeployqt.AppImage \
-            AppDir/usr/share/applications/clip2disc.desktop \
+            build/clip2disc.desktop \
             -appimage \
             -bundle-non-qt-libs \
             -extra-plugins=iconengines,platformthemes/libqgtk3.so
@@ -186,8 +179,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: clip2disc_${{ needs.versioning.outputs.VERSION }}_AppImage
-          path: AppDir/*.AppImage
+          path: *.AppImage
           if-no-files-found: ignore
+
 
   release:
     if: github.event_name == 'workflow_dispatch'
