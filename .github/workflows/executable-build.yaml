@@ -133,6 +133,9 @@ jobs:
         with:
           python-version: 3.13
 
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+
       # Install system dependencies
       - name: Install dependencies
         run: |
