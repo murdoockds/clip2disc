@@ -123,55 +123,56 @@ jobs:
           fetch-depth: 0
           submodules: false
 
-      # Ensure we have the release tags
+      # Fetch tags for release
       - name: Fix tags for release
         run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
 
-      # Install squashfs-tools (needed by AppImageBuilder)
-      - name: Install squashfs-tools
-        run: sudo apt update && sudo apt install -y squashfs-tools
+      # Setup Python 3.13
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.13
 
+      # Install deps.py requirements
+      - name: Install pip requirements
+        run: pip install --upgrade pip
 
-      # Download linuxdeploy if you want to bundle the app manually
-      - name: Download linuxdeploy
+      # Install system dependencies and linuxdeploy
+      - name: Install dependencies for AppImage
         run: |
-          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x linuxdeploy-x86_64.AppImage
-          mv linuxdeploy-x86_64.AppImage /tmp/linuxdeploy-x86_64.AppImage
+          sudo apt-get update -y || true   # avoid failing due to missing keys
+          sudo apt-get install -y build-essential libncursesw5-dev bison flex \
+            liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
+            libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
+            libpng-dev fonts-dejavu libfuse2
+          wget -O /tmp/linuxdeploy-x86_64.AppImage \
+            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          chmod +x /tmp/linuxdeploy-x86_64.AppImage
 
-      # Optional: setup ccache for faster builds
-      - name: Setup ccache
-        uses: hendrikmuhs/ccache-action@v1.2
+      # Setup ccache
+      - uses: hendrikmuhs/ccache-action@v1.2
         with:
           key: appimage
           restore-keys: |
             appimage
-      - name: Prepend ccache to PATH
+      - name: "Setup ccache: prepend path"
         run: echo /usr/lib/ccache >> $GITHUB_PATH
-      - name: Update ccache symlinks
+      - name: "Setup ccache: update symlinks"
         run: /usr/sbin/update-ccache-symlinks
 
-      - name: Download AppImageBuilder
-        run: |
-          wget -q https://github.com/AppImage/AppImageBuilder/releases/download/continuous/AppImageBuilder-x86_64.AppImage
-          chmod +x AppImageBuilder-x86_64.AppImage
-          mv AppImageBuilder-x86_64.AppImage ./AppImageBuilder.AppImage
-
-      # Build your project with AppImageBuilder
+      # Build AppImage using Makefile
       - name: Build AppImage
-        run: |
-          ./AppImageBuilder.AppImage \
-            --recipe ./AppImageBuilder.yml \
-            --skip-tests \
-            --skip-apt
+        run: make -j$(nproc) appimage
+        working-directory: crawl-ref/source
 
-      - name: Upload AppImage
-        uses: actions/upload-artifact@v4
+      # Upload AppImage to release
+      - name: Add AppImage to release
+        uses: svenstaro/upload-release-action@v2
         with:
-          name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
-          path: ./output/YourAppName-x86_64.AppImage
-          if-no-files-found: error
-
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref }}
+          file: crawl-ref/source/stone_soup-latest-linux-console.x86_64.AppImage
+          asset_name: dcss-$tag-linux-console.x86_64.AppImage
 
   release:
     if: github.event_name == 'workflow_dispatch'
