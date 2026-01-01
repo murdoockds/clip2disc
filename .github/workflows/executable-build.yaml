@@ -123,7 +123,7 @@ jobs:
           fetch-depth: 0
           submodules: false
 
-      # Fetch tags for release
+      # Fetch tags for versioning
       - name: Fix tags for release
         run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
 
@@ -133,20 +133,14 @@ jobs:
         with:
           python-version: 3.13
 
-      # Install system dependencies, Qt, and linuxdeploy
-      - name: Install dependencies for build and AppImage
+      # Install system dependencies
+      - name: Install dependencies
         run: |
-          sudo apt-get update -y || true
-          sudo apt-get install -y \
-            build-essential libncursesw5-dev bison flex liblua5.4-dev \
-            libsqlite3-dev libz-dev pkg-config ccache advancecomp \
-            libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev \
-            libfreetype6-dev libpng-dev fonts-dejavu libfuse2 \
-            qt6-base-dev qt6-tools-dev qt6-tools-dev-tools qt6-base-dev-tools \
-            wget
-          wget -O /tmp/linuxdeploy-x86_64.AppImage \
-            https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
-          chmod +x /tmp/linuxdeploy-x86_64.AppImage
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential libncursesw5-dev bison flex \
+            liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
+            libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
+            libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
 
       # Setup ccache
       - uses: hendrikmuhs/ccache-action@v1.2
@@ -154,38 +148,43 @@ jobs:
           key: appimage
           restore-keys: |
             appimage
-      - name: "Setup ccache: prepend path"
+      - name: Setup ccache path
         run: echo /usr/lib/ccache >> $GITHUB_PATH
-      - name: "Setup ccache: update symlinks"
-        run: /usr/sbin/update-ccache-symlinks
 
-      # Build the project with CMake
-      - name: Build project
+      # Build project with CMake
+      - name: Configure and Build
         run: |
-          export CMAKE_PREFIX_PATH=/usr/lib/x86_64-linux-gnu/cmake/Qt6
-          cmake -B build -S .
-          cmake --build build --config Release -j$(nproc)
-        working-directory: ${{ github.workspace }}
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
 
-      # Create AppDir and package AppImage
-      - name: Build AppImage
+      # Install into AppDir
+      - name: Install into AppDir
         run: |
-          mkdir -p AppDir/usr/bin
-          cp build/clip2disc AppDir/usr/bin/
-          /tmp/linuxdeploy-x86_64.AppImage \
-            --appdir ./AppDir \
-            --output appimage \
-            --executable ./AppDir/usr/bin/clip2disc \
-            --desktop-file ./resources/clip2disc.desktop \
-            --icon-file ./resources/images/clip2disc.png
-        working-directory: ${{ github.workspace }}
+          mkdir -p AppDir
+          cmake --install build --prefix /usr --root ./AppDir
 
-      # Upload AppImage artifact
+      # Download linuxdeployqt
+      - name: Download linuxdeployqt
+        run: |
+          wget -O /tmp/linuxdeployqt.AppImage \
+            https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-x86_64.AppImage
+          chmod +x /tmp/linuxdeployqt.AppImage
+
+      # Deploy AppImage
+      - name: Run linuxdeployqt
+        run: |
+          /tmp/linuxdeployqt.AppImage \
+            AppDir/usr/share/applications/clip2disc.desktop \
+            -appimage \
+            -bundle-non-qt-libs \
+            -extra-plugins=iconengines,platformthemes/libqgtk3.so
+
+      # Upload the AppImage as an artifact
       - name: Upload AppImage Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clip2disc_${{ github.event.release.tag_name }}_AppImage
-          path: clip2disc-*.AppImage
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_AppImage
+          path: AppDir/*.AppImage
           if-no-files-found: ignore
 
   release:
