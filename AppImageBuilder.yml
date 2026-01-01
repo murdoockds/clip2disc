@@ -1,0 +1,50 @@
+version: 1
+
+AppDir:
+  path: AppDir
+  app_info:
+    id: clip2disc
+    name: clip2disc
+    icon: clip2disc
+    exec: usr/bin/clip2disc
+    exec_args: $@
+    version: "${VERSION}"
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse
+    include:
+      - qt6-base-dev
+      - qt6-multimedia-dev
+      - qt6-tools-dev
+      - libgl1-mesa-dev
+      - libglu1-mesa-dev
+      - libpulse-dev
+      - libasound2-dev
+    exclude:
+      - hicolor-icon-theme
+      - sound-theme-freedesktop
+  files:
+    include:
+      - build/clip2disc
+    extra:
+      - source: resources/clip2disc.desktop
+        target: usr/share/applications/clip2disc.desktop
+      - source: resources/images/clip2disc.png
+        target: usr/share/icons/hicolor/256x256/apps/clip2disc.png
+    exclude:
+      - usr/share/man
+      - usr/share/doc/*/README.*
+      - usr/share/doc/*/changelog.*
+      - usr/share/doc/*/NEWS.*
+      - usr/share/doc/*/TODO.*
+  test:
+    ubuntu:
+      image: appimagecrafters/tests-env:ubuntu-jammy
+      command: ./AppRun
+      use_host_x: true
+
+AppImage:
+  arch: x86_64
+  update-information: !ENV ${UPDATE_INFO}
+  sign-key: None

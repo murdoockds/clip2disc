@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=Clip2Disc
-Comment=Record and manage clips
+Type=Application
+Name=clip2disc
 Exec=clip2disc
 Icon=clip2disc
+Comment=Clip2Disc - Record your screen
+Categories=AudioVideo;Recording;
 Terminal=false
-Type=Application
-Categories=Utility;
