@@ -139,7 +139,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent *e)
     const int playX  = positionToX(m_play);
     const int endX   = positionToX(m_end);
 
-    // 1️⃣ Handle dragging (priority)
+    // Handle dragging (priority)
     if (qAbs(x - startX) < 8) {
         m_activeHandle = Start;
         return;
@@ -153,7 +153,7 @@ void TimelineWidget::mousePressEvent(QMouseEvent *e)
         return;
     }
 
-    // 2️⃣ Click inside active (blue) range → seek
+    // Click inside active (blue) range → seek
     if (clickedPos >= m_start && clickedPos <= m_end) {
         m_play = clickedPos;
         emit playPositionChanged(m_play);

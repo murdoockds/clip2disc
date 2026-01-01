@@ -13,7 +13,7 @@ public:
     void setDuration(qint64 durationMs);
     void setPlayPosition(qint64 positionMs);
 
-    // 🔹 NEW: external control from buttons
+    // External control from buttons
     void setStartPosition(qint64 positionMs);
     void setEndPosition(qint64 positionMs);
 

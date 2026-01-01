@@ -11,7 +11,7 @@
 #include <QStackedLayout>
 #include <QStyle>
 #include <QLabel>
-#include <QTimer>   // <-- add this
+#include <QTimer>
 
 static constexpr qint64 FRAME_STEP_MS = 40; // ~25fps fallback
 
@@ -37,7 +37,6 @@ Player::Player(QWidget *parent)
     videoContainer->setLayout(videoStack);
 
     // --- Overlay ---
-    // Pass m_videoWidget as the parent instead of the container
     m_overlay = new ClickOverlay(m_videoWidget);
     m_overlay->show();
     m_overlay->raise();

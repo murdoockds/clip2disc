@@ -1,4 +1,4 @@
-version: 1          # <--- this is required
+version: 1
 
 AppDir:
   path: AppDir

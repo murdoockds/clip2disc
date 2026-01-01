@@ -24,17 +24,16 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
 
-    // 🔧 Ensure videoContainer has a layout
+    // Ensure videoContainer has a layout
     if (!ui->videoContainer->layout()) {
         ui->videoContainer->setLayout(new QVBoxLayout);
         ui->videoContainer->layout()->setContentsMargins(0, 0, 0, 0);
     }
 
-    // 🎬 Create the player INSIDE the container
+    // Create the player INSIDE the container
     m_player = new Player(ui->videoContainer);
     ui->videoContainer->layout()->addWidget(m_player);
 
-    // 🔥 THIS WAS THE MISSING LINK
     connect(m_player, &Player::requestOpenFile,
             this, &MainWindow::selectInputFile);
 
@@ -668,7 +667,7 @@ void MainWindow::updateProgress()
         ui->progressBar->setValue(percent);
     }
 
-    // ✅ Only finish when NOT trimming
+    // Only finish when NOT trimming
     if (text.contains("progress=end") && !isTrimming) {
         qDebug() << "Compression reported progress=end";
 

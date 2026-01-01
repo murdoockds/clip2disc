@@ -24,7 +24,6 @@ public:
 
     void pause();
 
-    // Expose trim values for MainWindow later
     qint64 trimStart() const;
     qint64 trimEnd() const;
 
@@ -71,7 +70,7 @@ private:
     QPushButton    *m_btnNextFrame    = nullptr;
     QPushButton    *m_btnStop         = nullptr;
 
-    QSlider *m_volumeSlider;  // <--- new
+    QSlider *m_volumeSlider;
 };
 
 #endif // PLAYER_H

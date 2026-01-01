@@ -123,10 +123,6 @@ jobs:
           fetch-depth: 0
           submodules: false
 
-      # Fetch tags for versioning
-      - name: Fix tags for release
-        run: git fetch --depth=1 origin +refs/tags/*:refs/tags/*
-
       # Setup Python 3.13
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -191,7 +187,6 @@ jobs:
           path: "*.AppImage"
           if-no-files-found: ignore
 
-
   release:
     if: github.event_name == 'workflow_dispatch'
     needs: [versioning, build-windows, build-linux]
@@ -208,9 +203,11 @@ jobs:
           name: clip2disc_${{ needs.versioning.outputs.VERSION }}_installer
           path: .
 
-      - name: Repackage files into a versioned ZIP
-        run: |
-          zip -r clip2disc_${{ needs.versioning.outputs.VERSION }}_installer .
+      - name: Download Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_AppImage
+          path: .
 
       - name: Create and push new tag
         run: |
@@ -229,4 +226,6 @@ jobs:
           body: "New release: ${{ needs.versioning.outputs.VERSION }}"
           draft: false
           prerelease: false
-          files: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
+          files: | 
+            clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
+            Clip2Disc-${{ needs.versioning.outputs.VERSION }}-x86_64.AppImage
