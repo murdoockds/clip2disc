@@ -22,7 +22,15 @@ ClickOverlay::ClickOverlay(QWidget *parent)
     layout->addStretch();
     layout->addWidget(m_label);
     layout->addStretch();
+
+    m_label->setMinimumSize(50, 20);  // ensure label has size
+    m_label->adjustSize();
+
+    // Make sure overlay itself resizes with parent
+    setGeometry(parent->rect());
+    show();
 }
+
 
 void ClickOverlay::showText(bool visible)
 {

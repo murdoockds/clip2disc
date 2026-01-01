@@ -11,6 +11,7 @@
 #include <QStackedLayout>
 #include <QStyle>
 #include <QLabel>
+#include <QTimer>   // <-- add this
 
 static constexpr qint64 FRAME_STEP_MS = 40; // ~25fps fallback
 
@@ -40,6 +41,13 @@ Player::Player(QWidget *parent)
     m_overlay->setGeometry(videoContainer->rect());
     m_overlay->raise();
     m_overlay->show();
+
+    QTimer::singleShot(0, m_overlay, [this](){
+        m_overlay->show();
+        m_overlay->showText(true);
+        m_overlay->raise();
+    });
+
 
     // --- Timeline ---
     m_timeline = new TimelineWidget(this);
