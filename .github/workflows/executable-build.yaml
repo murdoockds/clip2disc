@@ -163,7 +163,7 @@ jobs:
       - name: Install into AppDir
         run: |
           mkdir -p AppDir
-          cmake --install build --prefix /usr --root ./AppDir
+          cmake --install build --prefix /usr DESTDIR=$PWD/AppDir
 
       # Download linuxdeployqt
       - name: Download linuxdeployqt
