@@ -141,7 +141,8 @@ jobs:
             liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
             libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
             libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools \
-            qt6-multimedia-dev
+            qt6-multimedia-dev qt6-qmake
+
 
       # Setup ccache
       - uses: hendrikmuhs/ccache-action@v1.2
@@ -172,7 +173,8 @@ jobs:
             resources/clip2disc.desktop \
             -appimage \
             -bundle-non-qt-libs \
-            -extra-plugins=iconengines,platformthemes/libqgtk3.so
+            -extra-plugins=iconengines,platformthemes/libqgtk3.so \
+            -icon=resources/images/clip2disc.png
 
       # Upload the AppImage as an artifact
       - name: Upload AppImage Artifact
