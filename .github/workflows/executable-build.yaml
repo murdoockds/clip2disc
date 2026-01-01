@@ -158,8 +158,12 @@ jobs:
 
       # Build AppImage using Makefile
       - name: Build AppImage
-        run: make -j$(nproc) appimage
+        run: |
+          /tmp/linuxdeploy-x86_64.AppImage \
+            --appdir ./AppDir \
+            --output appimage
         working-directory: ${{ github.workspace }}
+
 
       # Upload AppImage as artifact
       - name: Upload AppImage Artifact
