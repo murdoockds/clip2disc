@@ -24,6 +24,12 @@ ClickOverlay::ClickOverlay(QWidget *parent)
     m_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
     m_label->setVisible(true);
 
+    // Inside ClickOverlay constructor
+    setAttribute(Qt::WA_NoSystemBackground);
+    setAttribute(Qt::WA_TranslucentBackground);
+    // Ensure it doesn't block the video widget from updating
+    setAttribute(Qt::WA_OpaquePaintEvent, false);
+
     // --- Layout ---
     auto *layout = new QVBoxLayout(this);
     layout->setContentsMargins(0, 0, 0, 0);

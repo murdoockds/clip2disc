@@ -37,9 +37,9 @@ Player::Player(QWidget *parent)
     videoContainer->setLayout(videoStack);
 
     // --- Overlay ---
-    m_overlay = new ClickOverlay(videoContainer);
+    // Pass m_videoWidget as the parent instead of the container
+    m_overlay = new ClickOverlay(m_videoWidget);
     m_overlay->show();
-    m_overlay->showText(true);
     m_overlay->raise();
 
     // --- Timeline ---
@@ -175,9 +175,10 @@ Player::Player(QWidget *parent)
 void Player::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-
-    if (m_overlay)
+    if (m_overlay) {
         m_overlay->setGeometry(m_overlay->parentWidget()->rect());
+        m_overlay->raise(); // Re-force to top whenever resized
+    }
 }
 
 // ----------------- UI State -----------------
