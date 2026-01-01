@@ -18,6 +18,7 @@ signals:
     void clicked();
 
 protected:
+    void resizeEvent(QResizeEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
 };
 

@@ -8,42 +8,51 @@
 ClickOverlay::ClickOverlay(QWidget *parent)
     : QWidget(parent)
 {
-    // --- Make overlay transparent but still receive mouse events ---
-    setAttribute(Qt::WA_NoSystemBackground, true);   // no default background
-    setAttribute(Qt::WA_TranslucentBackground, true); // fully transparent
-    setAttribute(Qt::WA_StyledBackground, false);    // don't paint background
+    setAttribute(Qt::WA_TransparentForMouseEvents, false);
+    setAttribute(Qt::WA_StyledBackground, false);
+    setStyleSheet("background: transparent;"); // fully transparent
 
-    // --- Label for clickable text ---
+    // --- Label ---
     m_label = new QLabel("Click to select video", this);
     m_label->setAlignment(Qt::AlignCenter);
     m_label->setStyleSheet(
         "color: white;"
         "font-size: 18px;"
         "font-weight: 500;"
+        "background: rgba(0,0,0,0.5);" // optional semi-transparent background
         );
     m_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_label->setVisible(true);
 
+    // --- Layout ---
     auto *layout = new QVBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->addStretch();
-    layout->addWidget(m_label, 0, Qt::AlignCenter);  // center text
+    layout->addWidget(m_label, 0, Qt::AlignCenter);
     layout->addStretch();
 
-    setGeometry(parent->rect()); // match parent size
+    raise();    // make sure it's on top
     show();
-    raise();
-    update();  // force repaint
 }
 
+// make sure label always fills overlay
+void ClickOverlay::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);
+    if (m_label)
+        m_label->setGeometry(rect());
+}
+
+// show or hide the label
 void ClickOverlay::showText(bool visible)
 {
     if (m_label)
         m_label->setVisible(visible);
-    update();
 }
 
+// emit click signal
 void ClickOverlay::mousePressEvent(QMouseEvent *event)
 {
-    Q_UNUSED(event)
     qDebug() << "Overlay clicked";
     emit clicked();
 }

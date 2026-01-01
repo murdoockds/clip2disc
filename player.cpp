@@ -37,10 +37,10 @@ Player::Player(QWidget *parent)
     videoContainer->setLayout(videoStack);
 
     // --- Overlay ---
-    m_overlay = new ClickOverlay(videoContainer);  // parent = container
-    videoStack->addWidget(m_overlay);              // add on top of video
-    m_overlay->raise();
+    m_overlay = new ClickOverlay(videoContainer);
     m_overlay->show();
+    m_overlay->showText(true);
+    m_overlay->raise();
 
     // --- Timeline ---
     m_timeline = new TimelineWidget(this);
