@@ -1,13 +1,24 @@
-version: 1
 AppDir:
   path: AppDir
+
   app_info:
     id: clip2disc
     name: Clip2Disc
     icon: clip2disc
-    version: latest
+    version: "latest"
     exec: usr/bin/clip2disc
     exec_args: $@
+
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: "deb http://archive.ubuntu.com/ubuntu jammy main universe"
+    include:
+      - qt6-base-dev
+      - qt6-multimedia-dev
+      - qt6-tools-dev
+      - squashfs-tools       # <--- added to make mksquashfs available
+
   files:
     include:
       - build/clip2disc
@@ -19,7 +30,3 @@ AppDir:
       - usr/share/doc/*/changelog.*
       - usr/share/doc/*/NEWS.*
       - usr/share/doc/*/TODO.*
-AppImage:
-  arch: x86_64
-  update-information: !ENV ${UPDATE_INFO}
-  sign-key: None

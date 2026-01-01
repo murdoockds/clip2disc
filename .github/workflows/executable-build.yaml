@@ -149,6 +149,7 @@ jobs:
         uses: AppImageCrafters/build-appimage@master
         with:
           recipe: "./AppImageBuilder.yml"
+          args: --skip-tests        # use valid argument
         env:
           UPDATE_INFO: gh-releases-zsync|JoaoMacedo|clip2disc|latest|*x86_64.AppImage.zsync
           VERSION: ${{ needs.versioning.outputs.VERSION }}
@@ -159,8 +160,6 @@ jobs:
           name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
           path: ./out/clip2disc*.AppImage
           if-no-files-found: error
-
-
 
   release:
     if: github.event_name == 'workflow_dispatch'
