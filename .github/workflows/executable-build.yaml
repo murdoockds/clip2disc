@@ -135,7 +135,8 @@ jobs:
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
-        modules: 'addons.qtmultimedia'
+        with:
+          modules: 'addons.qtmultimedia'
 
       # Install system dependencies
       - name: Install dependencies
