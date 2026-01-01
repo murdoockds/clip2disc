@@ -127,21 +127,20 @@ jobs:
           sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev wget patchelf
 
       - name: Prepare Build Directory
-        run: |
-          mkdir -p build
-          cd build
+        run: mkdir -p build
 
       - name: Build Qt App
+        working-directory: build
         run: |
           cmake .. -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(nproc)
 
       - name: Prepare AppDir
         run: |
-          APPDIR=$GITHUB_WORKSPACE/${{ env.APP_NAME }}.AppDir
+          APPDIR=$GITHUB_WORKSPACE/clip2disc.AppDir
           mkdir -p $APPDIR/usr/bin
-          cp build/${{ env.APP_NAME }} $APPDIR/usr/bin/
-          
+          cp build/clip2disc $APPDIR/usr/bin/
+
       - name: Download linuxdeployqt
         run: |
           wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
@@ -149,9 +148,9 @@ jobs:
 
       - name: Create AppImage
         run: |
-          APPDIR=$GITHUB_WORKSPACE/${{ env.APP_NAME }}.AppDir
-          ./linuxdeployqt-continuous-x86_64.AppImage $APPDIR/usr/bin/${{ env.APP_NAME }} -appimage
-          # The AppImage will be created in the current directory
+          APPDIR=$GITHUB_WORKSPACE/clip2disc.AppDir
+          ./linuxdeployqt-continuous-x86_64.AppImage $APPDIR/usr/bin/clip2disc -appimage
+          # This will create clip2disc-x86_64.AppImage in the current directory
 
       - name: Upload AppImage Artifact
         uses: actions/upload-artifact@v4
@@ -159,6 +158,7 @@ jobs:
           name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
           path: clip2disc-x86_64.AppImage
           if-no-files-found: error
+
 
   release:
     if: github.event_name == 'workflow_dispatch'
