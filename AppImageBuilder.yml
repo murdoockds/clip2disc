@@ -1,3 +1,5 @@
+version: 1          # <--- this is required
+
 AppDir:
   path: AppDir
 
@@ -17,7 +19,7 @@ AppDir:
       - qt6-base-dev
       - qt6-multimedia-dev
       - qt6-tools-dev
-      - squashfs-tools       # <--- added to make mksquashfs available
+      - squashfs-tools
 
   files:
     include:
