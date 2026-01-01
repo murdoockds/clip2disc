@@ -17,18 +17,17 @@ ClickOverlay::ClickOverlay(QWidget *parent)
         "font-size: 18px;"
         "font-weight: 500;"
         );
+    m_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
     auto *layout = new QVBoxLayout(this);
     layout->addStretch();
-    layout->addWidget(m_label);
+    layout->addWidget(m_label, 0, Qt::AlignCenter);  // center explicitly
     layout->addStretch();
 
-    m_label->setMinimumSize(50, 20);  // ensure label has size
-    m_label->adjustSize();
-
-    // Make sure overlay itself resizes with parent
     setGeometry(parent->rect());
     show();
+    raise();
+    update();  // force repaint
 }
 
 

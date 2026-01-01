@@ -42,10 +42,13 @@ Player::Player(QWidget *parent)
     m_overlay->raise();
     m_overlay->show();
 
-    QTimer::singleShot(0, m_overlay, [this](){
-        m_overlay->show();
-        m_overlay->showText(true);
-        m_overlay->raise();
+    QTimer::singleShot(0, [this]() {
+        if (m_overlay) {
+            m_overlay->show();
+            m_overlay->showText(true);
+            m_overlay->raise();
+            m_overlay->update();
+        }
     });
 
 
@@ -220,7 +223,7 @@ void Player::stop()
 
     // Show black overlay WITH text
     m_overlay->show();
-    m_overlay->showText(false);   // don't show "Click to select video"
+    m_overlay->showText(true);   // don't show "Click to select video"
 
     m_overlay->raise();          // ensure it's on top
     m_overlay->setGeometry(m_videoWidget->rect());  // match video size
