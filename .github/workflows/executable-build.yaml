@@ -156,21 +156,37 @@ jobs:
       - name: "Setup ccache: update symlinks"
         run: /usr/sbin/update-ccache-symlinks
 
-      # Build AppImage using Makefile
+      # Build the application binary
+      - name: Build the binary
+        run: |
+          cmake -B build -S .
+          cmake --build build --config Release
+
+      # Prepare AppDir
+      - name: Prepare AppDir
+        run: |
+          mkdir -p AppDir/usr/bin
+          cp build/clip2disc AppDir/usr/bin/
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
+          cp resources/clip2disc.desktop AppDir/usr/share/applications/
+          cp resources/images/clip2disc.png AppDir/usr/share/icons/hicolor/256x256/apps/
+
+      # Run linuxdeploy to create AppImage
       - name: Build AppImage
         run: |
           /tmp/linuxdeploy-x86_64.AppImage \
             --appdir ./AppDir \
+            --desktop-file ./AppDir/usr/share/applications/clip2disc.desktop \
+            --icon-file ./AppDir/usr/share/icons/hicolor/256x256/apps/clip2disc.png \
             --output appimage
-        working-directory: ${{ github.workspace }}
-
 
       # Upload AppImage as artifact
       - name: Upload AppImage Artifact
         uses: actions/upload-artifact@v4
         with:
           name: clip2disc_${{ github.event.release.tag_name }}_AppImage
-          path: ${{ github.workspace }}/stone_soup-latest-linux-console.x86_64.AppImage
+          path: clip2disc-*.AppImage
           if-no-files-found: ignore
 
   release:
