@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Clip2Disc
+Exec=clip2disc
+Icon=clip2disc
+Comment=Compress your clips to match Discord's files size.
+Categories=AudioVideo;
+Terminal=false

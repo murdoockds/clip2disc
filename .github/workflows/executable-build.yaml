@@ -66,7 +66,7 @@ jobs:
             echo "Using commit hash: $commit_hash"
           fi
 
-  build:
+  build-windows:
     needs: versioning
     runs-on: windows-latest
     steps:
@@ -77,6 +77,7 @@ jobs:
           arch: 'win64_mingw'
           tools: 'tools_mingw1310'
           aqtversion: '==3.1.19'
+          modules: 'addons.qtmultimedia'
 
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -89,7 +90,7 @@ jobs:
           md release
 
       - name: Configure CMake
-        run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release -G "MinGW Makefiles"
+        run: cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release -G "MinGW Makefiles" -DQT_DEBUG_FIND_PACKAGE=ON
 
       - name: Build
         run: cmake --build ${{ github.workspace }}/build/Desktop_Qt_6_8_2_MinGW_64_bit-Release -- -j4
@@ -113,9 +114,82 @@ jobs:
           path: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
           if-no-files-found: ignore
 
+  build-linux:
+    needs: versioning
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          submodules: false
+
+      # Setup Python 3.13
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.13
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          modules: 'addons.qtmultimedia'
+
+      # Install system dependencies
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y build-essential libncursesw5-dev bison flex \
+            liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
+            libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
+            libpng-dev fonts-dejavu libfuse2
+
+      # Setup ccache
+      - uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: appimage
+          restore-keys: |
+            appimage
+      - name: Setup ccache path
+        run: echo /usr/lib/ccache >> $GITHUB_PATH
+
+      # Configure and build project with CMake
+      - name: Configure and Build
+        run: |
+          cmake -B build -S . -DCMAKE_BUILD_TYPE=Release
+          cmake --build build -j$(nproc)
+
+      # Download linuxdeployqt
+      - name: Download linuxdeployqt
+        run: |
+          wget -O /tmp/linuxdeployqt.AppImage \
+            https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+          chmod +x /tmp/linuxdeployqt.AppImage
+
+      - name: Copy app icon
+        run: |
+          mkdir -p build
+          cp resources/images/clip2disc.png build/clip2disc.png
+
+      # Deploy AppImage
+      - name: Run linuxdeployqt
+        run: |
+          /tmp/linuxdeployqt.AppImage \
+            resources/clip2disc.desktop \
+            -appimage \
+            -bundle-non-qt-libs \
+            -extra-plugins=iconengines,platformthemes/libqgtk3.so
+
+      # Upload the AppImage as an artifact
+      - name: Upload AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_AppImage
+          path: "*.AppImage"
+          if-no-files-found: ignore
+
   release:
     if: github.event_name == 'workflow_dispatch'
-    needs: [versioning, build]
+    needs: [versioning, build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -129,9 +203,11 @@ jobs:
           name: clip2disc_${{ needs.versioning.outputs.VERSION }}_installer
           path: .
 
-      - name: Repackage files into a versioned ZIP
-        run: |
-          zip -r clip2disc_${{ needs.versioning.outputs.VERSION }}_installer .
+      - name: Download Installer
+        uses: actions/download-artifact@v4
+        with:
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_AppImage
+          path: .
 
       - name: Create and push new tag
         run: |
@@ -150,4 +226,6 @@ jobs:
           body: "New release: ${{ needs.versioning.outputs.VERSION }}"
           draft: false
           prerelease: false
-          files: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
+          files: | 
+            clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
+            Clip2Disc-${{ needs.versioning.outputs.VERSION }}-x86_64.AppImage

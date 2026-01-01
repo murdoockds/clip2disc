@@ -1,0 +1,34 @@
+version: 1
+
+AppDir:
+  path: AppDir
+
+  app_info:
+    id: clip2disc
+    name: Clip2Disc
+    icon: clip2disc
+    version: "latest"
+    exec: usr/bin/clip2disc
+    exec_args: $@
+
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: "deb http://archive.ubuntu.com/ubuntu jammy main universe"
+    include:
+      - qt6-base-dev
+      - qt6-multimedia-dev
+      - qt6-tools-dev
+      - squashfs-tools
+
+  files:
+    include:
+      - build/clip2disc
+      - resources/clip2disc.desktop
+      - resources/images/clip2disc.png
+    exclude:
+      - usr/share/man
+      - usr/share/doc/*/README.*
+      - usr/share/doc/*/changelog.*
+      - usr/share/doc/*/NEWS.*
+      - usr/share/doc/*/TODO.*
