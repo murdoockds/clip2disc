@@ -123,6 +123,10 @@ jobs:
 
       - name: Install Build Dependencies
         run: |
+          # Add the missing Jammy GPG key
+          sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 871920D1991BC93C || true
+          
+          # Then update and install dependencies
           sudo apt update
           sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev \
             libgl1-mesa-dev libglu1-mesa-dev libpulse-dev libasound2-dev wget patchelf squashfs-tools
@@ -149,7 +153,7 @@ jobs:
         uses: AppImageCrafters/build-appimage@master
         with:
           recipe: "./AppImageBuilder.yml"
-          args: --skip-tests        # use valid argument
+          args: --skip-tests
         env:
           UPDATE_INFO: gh-releases-zsync|JoaoMacedo|clip2disc|latest|*x86_64.AppImage.zsync
           VERSION: ${{ needs.versioning.outputs.VERSION }}
@@ -160,6 +164,7 @@ jobs:
           name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
           path: ./out/clip2disc*.AppImage
           if-no-files-found: error
+
 
   release:
     if: github.event_name == 'workflow_dispatch'
