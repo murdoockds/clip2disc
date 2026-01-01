@@ -110,7 +110,7 @@ jobs:
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_installer
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
           path: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
           if-no-files-found: ignore
 
@@ -127,12 +127,12 @@ jobs:
       - name: Download Installer
         uses: actions/download-artifact@v4
         with:
-          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_installer
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
           path: .
 
       - name: Repackage files into a versioned ZIP
         run: |
-          zip -r clip2disc_${{ needs.versioning.outputs.VERSION }}_installer .
+          zip -r clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe .
 
       - name: Create and push new tag
         run: |
