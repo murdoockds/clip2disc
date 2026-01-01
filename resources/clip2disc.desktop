@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=clip2disc
+Name=Clip2Disc
 Exec=clip2disc
 Icon=clip2disc
-Comment=Clip2Disc - Record your screen
+Comment=Compress your clips to match Discord's files size.
 Categories=AudioVideo;
 Terminal=false

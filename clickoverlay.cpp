@@ -10,7 +10,7 @@ ClickOverlay::ClickOverlay(QWidget *parent)
     setAttribute(Qt::WA_StyledBackground);
     setStyleSheet("background-color: black;");
 
-    m_label = new QLabel(tr("Click to select video"), this);
+    m_label = new QLabel("Click to select video", this);
     m_label->setAlignment(Qt::AlignCenter);
     m_label->setStyleSheet(
         "color: white;"

@@ -91,51 +91,43 @@ void TimelineWidget::paintEvent(QPaintEvent *)
     const int centerY = height() / 2;
     const int trackTop = centerY - trackHeight / 2;
 
-    // --- Base track (ALWAYS visible) ---
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(50, 50, 50));
-    p.drawRoundedRect(
-        0,
-        trackTop,
-        width(),
-        trackHeight,
-        6,
-        6
-        );
+    QPalette pal = this->palette();
 
-    // 🚫 No media loaded → stop here
+    // Determine if background is dark or light
+    QColor baseColor = pal.color(QPalette::Window);
+    bool isDark = (baseColor.red() * 0.299 + baseColor.green() * 0.587 + baseColor.blue() * 0.114) < 128;
+
+    // --- Colors ---
+    QColor trackColor     = pal.color(QPalette::Mid);
+    QColor activeColor    = pal.color(QPalette::Highlight);
+    QColor handleColor    = isDark ? QColor(240, 240, 240) : QColor(30, 30, 30);  // contrasting
+    QColor playheadColor  = isDark ? QColor(255, 100, 100) : QColor(200, 0, 0);   // visible on any theme
+
+    // --- Base track ---
+    p.setPen(Qt::NoPen);
+    p.setBrush(trackColor);
+    p.drawRoundedRect(0, trackTop, width(), trackHeight, 6, 6);
+
     if (m_duration == 0)
         return;
 
     // --- Active (trim) range ---
     const int xStart = positionToX(m_start);
     const int xEnd   = positionToX(m_end);
-
-    p.setBrush(QColor(100, 180, 255));
-    p.drawRoundedRect(
-        xStart,
-        trackTop,
-        xEnd - xStart,
-        trackHeight,
-        6,
-        6
-        );
+    p.setBrush(activeColor);
+    p.drawRoundedRect(xStart, trackTop, xEnd - xStart, trackHeight, 6, 6);
 
     // --- Start / End handles ---
-    p.setBrush(Qt::white);
+    p.setBrush(handleColor);
     p.drawEllipse(QPoint(xStart, centerY), handleRadius, handleRadius);
-    p.drawEllipse(QPoint(xEnd,   centerY), handleRadius, handleRadius);
+    p.drawEllipse(QPoint(xEnd, centerY), handleRadius, handleRadius);
 
     // --- Playhead ---
     const int playX = positionToX(m_play);
-    p.setPen(QPen(Qt::red, 2));
-    p.drawLine(
-        playX,
-        trackTop - 8,
-        playX,
-        trackTop + trackHeight + 8
-        );
+    p.setPen(QPen(playheadColor, 2));
+    p.drawLine(playX, trackTop - 8, playX, trackTop + trackHeight + 8);
 }
+
 
 
 void TimelineWidget::mousePressEvent(QMouseEvent *e)
