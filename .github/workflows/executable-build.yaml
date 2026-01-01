@@ -140,7 +140,9 @@ jobs:
           sudo apt-get install -y build-essential libncursesw5-dev bison flex \
             liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
             libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
-            libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools
+            libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools \
+            qt6-multimedia-dev qt6-multimediawidgets-dev
+
 
       # Setup ccache
       - uses: hendrikmuhs/ccache-action@v1.2
