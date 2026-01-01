@@ -27,12 +27,6 @@ AppDir:
       - usr/share/doc/*/changelog.*
       - usr/share/doc/*/NEWS.*
       - usr/share/doc/*/TODO.*
-  script:
-    before:
-      - mkdir -p AppDir/usr/share/applications
-      - cp resources/clip2disc.desktop AppDir/usr/share/applications/
-      - mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-      - cp resources/images/clip2disc.png AppDir/usr/share/icons/hicolor/256x256/apps/
 AppImage:
   arch: x86_64
   update-information: !ENV ${UPDATE_INFO}

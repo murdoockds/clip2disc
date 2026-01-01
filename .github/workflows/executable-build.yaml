@@ -121,7 +121,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Install Build Dependencies
+      - name: Install Dependencies
         run: |
           sudo apt update
           sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev \
@@ -136,29 +136,37 @@ jobs:
           cmake .. -DCMAKE_BUILD_TYPE=Release
           cmake --build . -j$(nproc)
 
-      - name: Copy App Files to AppDir
+      - name: Prepare AppDir
         run: |
-          mkdir -p AppDir/usr/bin
-          cp build/clip2disc AppDir/usr/bin/
-          mkdir -p AppDir/usr/share/applications
-          cp resources/clip2disc.desktop AppDir/usr/share/applications/
-          mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
-          cp resources/images/clip2disc.png AppDir/usr/share/icons/hicolor/256x256/apps/
+          APPDIR=$GITHUB_WORKSPACE/AppDir
+          mkdir -p $APPDIR/usr/bin
+          cp build/clip2disc $APPDIR/usr/bin/
+
+          # Copy desktop file
+          mkdir -p $APPDIR/usr/share/applications
+          cp resources/clip2disc.desktop $APPDIR/usr/share/applications/
+
+          # Copy icon
+          mkdir -p $APPDIR/usr/share/icons/hicolor/256x256/apps
+          cp resources/images/clip2disc.png $APPDIR/usr/share/icons/hicolor/256x256/apps/
+
+      - name: Install AppImageBuilder
+        run: |
+          wget https://github.com/AppImage/AppImageBuilder/releases/download/continuous/appimage-builder-x86_64.AppImage
+          chmod +x appimage-builder-x86_64.AppImage
+          sudo mv appimage-builder-x86_64.AppImage /usr/local/bin/appimage-builder
 
       - name: Build AppImage
-        uses: AppImageCrafters/build-appimage@master
-        with:
-          recipe: "./AppImageBuilder.yml"
-        env:
-          UPDATE_INFO: gh-releases-zsync|JoaoMacedo|clip2disc|latest|*x86_64.AppImage.zsync
-          VERSION: ${{ needs.versioning.outputs.VERSION }}
+        run: |
+          appimage-builder --skip-test --recipe ./AppImageBuilder.yml
 
-      - name: Upload AppImage
+      - name: Upload AppImage Artifact
         uses: actions/upload-artifact@v4
         with:
           name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
-          path: ./out/clip2disc*.AppImage
+          path: AppDir/out/*.AppImage
           if-no-files-found: error
+
 
 
   release:
