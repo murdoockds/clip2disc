@@ -125,7 +125,7 @@ jobs:
         run: |
           sudo apt update
           sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev \
-            libgl1-mesa-dev libglu1-mesa-dev libpulse-dev libasound2-dev wget patchelf
+            libgl1-mesa-dev libglu1-mesa-dev libpulse-dev libasound2-dev wget patchelf squashfs-tools
 
       - name: Prepare Build Directory
         run: mkdir -p build
