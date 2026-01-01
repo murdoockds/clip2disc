@@ -66,7 +66,7 @@ jobs:
             echo "Using commit hash: $commit_hash"
           fi
 
-  build:
+  build-windows:
     needs: versioning
     runs-on: windows-latest
     steps:
@@ -110,13 +110,59 @@ jobs:
       - name: Upload Installer Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_installer
           path: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
           if-no-files-found: ignore
 
+  build-linux:
+    needs: versioning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install Dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential cmake qt6-base-dev qt6-multimedia-dev qt6-tools-dev wget patchelf
+
+      - name: Prepare Build Directory
+        run: |
+          mkdir -p build
+          cd build
+
+      - name: Build Qt App
+        run: |
+          cmake .. -DCMAKE_BUILD_TYPE=Release
+          cmake --build . -j$(nproc)
+
+      - name: Prepare AppDir
+        run: |
+          APPDIR=$GITHUB_WORKSPACE/${{ env.APP_NAME }}.AppDir
+          mkdir -p $APPDIR/usr/bin
+          cp build/${{ env.APP_NAME }} $APPDIR/usr/bin/
+          
+      - name: Download linuxdeployqt
+        run: |
+          wget https://github.com/probonopd/linuxdeployqt/releases/download/continuous/linuxdeployqt-continuous-x86_64.AppImage
+          chmod +x linuxdeployqt-continuous-x86_64.AppImage
+
+      - name: Create AppImage
+        run: |
+          APPDIR=$GITHUB_WORKSPACE/${{ env.APP_NAME }}.AppDir
+          ./linuxdeployqt-continuous-x86_64.AppImage $APPDIR/usr/bin/${{ env.APP_NAME }} -appimage
+          # The AppImage will be created in the current directory
+
+      - name: Upload AppImage Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: clip2disc_appimage_${{ needs.versioning.outputs.VERSION }}
+          path: clip2disc-x86_64.AppImage
+          if-no-files-found: error
+
   release:
     if: github.event_name == 'workflow_dispatch'
-    needs: [versioning, build]
+    needs: [versioning, build-windows, build-linux]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -127,12 +173,12 @@ jobs:
       - name: Download Installer
         uses: actions/download-artifact@v4
         with:
-          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe
+          name: clip2disc_${{ needs.versioning.outputs.VERSION }}_installer
           path: .
 
       - name: Repackage files into a versioned ZIP
         run: |
-          zip -r clip2disc_${{ needs.versioning.outputs.VERSION }}_setup_x64.exe .
+          zip -r clip2disc_${{ needs.versioning.outputs.VERSION }}_installer .
 
       - name: Create and push new tag
         run: |
