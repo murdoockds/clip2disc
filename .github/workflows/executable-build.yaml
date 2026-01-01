@@ -142,7 +142,9 @@ jobs:
             libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
             libpng-dev fonts-dejavu libfuse2 qt6-base-dev qt6-tools-dev qt6-tools-dev-tools \
             qt6-multimedia-dev
-          sudo ln -s $(which qmake6) /usr/bin/qmake
+          qmake -v
+          sudo ln -sf $(which qmake6) /usr/bin/qmake
+          qmake -v
 
       # Setup ccache
       - uses: hendrikmuhs/ccache-action@v1.2
