@@ -5,7 +5,7 @@
 #include <QProcess>
 #include "videoinfo.h"
 
-// Forward declaration (IMPORTANT)
+// Forward declaration
 class Player;
 
 QT_BEGIN_NAMESPACE
@@ -19,43 +19,52 @@ class MainWindow : public QMainWindow
     Q_OBJECT
 
 public:
-    MainWindow(QWidget *parent = nullptr);
+    explicit MainWindow(QWidget *parent = nullptr);
     ~MainWindow();
 
 private slots:
-    void updateMarkedDuration(qint64 startMs, qint64 endMs);
     void selectInputFile();
     void selectOutputFile();
     void startEncoding();
     void updateProgress();
     void showAboutDialog();
     void updateEstimatedFileSize();
+    void updateMarkedDuration(qint64 startMs, qint64 endMs);
 
-    
 private:
-
-    VideoInfo m_sourceInfo;
+    // -------- Helpers --------
     VideoInfo probeVideo(const QString &filePath);
+    bool initializeBinaryPaths();
+    void deleteTrimmedFile(const QString &filePath);
+    int getVideoDuration(const QString &filePath);
 
-    Ui::MainWindow *ui;
+    void autoAdjustVideoBitrateForResolution();
 
-    // 🔽 Embedded media player
+    int computeScaledVideoBitrate(int userBitrate,
+                                  int outWidth,
+                                  int outHeight,
+                                  int fps) const;
+
+    // -------- State --------
+    Ui::MainWindow *ui = nullptr;
     Player *m_player = nullptr;
 
-    // Existing fields
+    VideoInfo m_sourceInfo;
+
     QString inputFilePath;
     QString outputFilePath;
     QString trimmedFilePath;
     QString ffmpegInputFile;
     QString ffmpegPath;
     QString ffprobePath;
-    QProcess *ffmpegProcess;
+
+    QProcess *ffmpegProcess = nullptr;
+
+    bool m_userAdjustedVideoBitrate = false;
+    bool isTrimming = false;
+
     qint64 videoDurationMs = 0;
     int totalDuration = 0;
-
-    int getVideoDuration(const QString &filePath);
-    void deleteTrimmedFile(const QString &filePath);
-    bool initializeBinaryPaths();
-    bool isTrimming = false;
 };
+
 #endif // MAINWINDOW_H

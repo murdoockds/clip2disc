@@ -17,7 +17,6 @@
 #include <QJsonObject>
 #include <QJsonArray>
 
-
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
     , ui(new Ui::MainWindow)
@@ -58,8 +57,7 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->videoBitrateSlider, &QSlider::valueChanged,
             this, [this](int value) {
 
-                if (m_sourceInfo.videoBitrate <= 0)
-                    return;
+                m_userAdjustedVideoBitrate = true;
 
                 int percent = (value * 100) / m_sourceInfo.videoBitrate;
 
@@ -70,6 +68,7 @@ MainWindow::MainWindow(QWidget *parent)
 
                 updateEstimatedFileSize();
             });
+
 
     ui->videoBitrateSlider->setSingleStep(100);
     ui->videoBitrateSlider->setPageStep(500);
@@ -110,8 +109,12 @@ MainWindow::MainWindow(QWidget *parent)
     connect(ui->resolutionCombo, &QComboBox::currentIndexChanged,
             this, [this](int) {
 
+                if (!m_userAdjustedVideoBitrate)
+                    autoAdjustVideoBitrateForResolution();
+
                 updateEstimatedFileSize();
             });
+
 
     ui->resolutionCombo->setEnabled(false);
 
@@ -265,76 +268,101 @@ void MainWindow::updateEstimatedFileSize()
         return;
     }
 
-    // --- Selected values ---
-    int videoBitrate = ui->videoBitrateSlider->isEnabled()
-                           ? ui->videoBitrateSlider->value()
-                           : m_sourceInfo.videoBitrate;
+    // --- Resolution ---
+    QString res = ui->resolutionCombo->currentData().toString();
+    int outW = m_sourceInfo.width;
+    int outH = m_sourceInfo.height;
 
-    int audioBitrate = ui->audioBitrateSlider->isEnabled()
-                           ? ui->audioBitrateSlider->value()
-                           : m_sourceInfo.audioBitrate;
+    QStringList parts = res.split("x");
+    if (parts.size() == 2) {
+        outW = parts[0].toInt();
+        outH = parts[1].toInt();
+    }
 
+    // --- FPS ---
     int fps = ui->fpsSlider->isEnabled()
                   ? ui->fpsSlider->value()
                   : int(m_sourceInfo.fps);
 
-    QString res = ui->resolutionCombo->currentData().toString();
+    // --- Video bitrate (scaled) ---
+    int userVideoBitrate = ui->videoBitrateSlider->value();
+    int videoBitrate =
+        computeScaledVideoBitrate(userVideoBitrate, outW, outH, fps);
 
-    // --- Resolution scaling factor ---
-    double scaleFactor = 1.0;
-    if (!res.isEmpty()) {
-        QStringList parts = res.split("x");
-        if (parts.size() == 2) {
-            int rw = parts[0].toInt();
-            int rh = parts[1].toInt();
+    // --- Audio bitrate ---
+    int audioBitrate = ui->audioBitrateSlider->isEnabled()
+                           ? ui->audioBitrateSlider->value()
+                           : m_sourceInfo.audioBitrate;
 
-            double originalPixels =
-                double(m_sourceInfo.width) * m_sourceInfo.height;
-            double targetPixels =
-                double(rw) * rh;
-
-            if (originalPixels > 0)
-                scaleFactor = targetPixels / originalPixels;
-        }
-    }
-
-    // --- FPS scaling ---
-    if (m_sourceInfo.fps > 0)
-        scaleFactor *= double(fps) / m_sourceInfo.fps;
-
-    // --- Final bitrate ---
-    double totalBitrateKbps =
-        (videoBitrate * scaleFactor) + audioBitrate;
-
+    double totalBitrateKbps = videoBitrate + audioBitrate;
     if (totalBitrateKbps <= 0) {
         ui->fileSizeLabel->setText("—");
         return;
     }
 
-    // --- Duration (marked or full) ---
+    // --- Duration (trim-aware) ---
     double durationSec = m_sourceInfo.duration;
-
     qint64 startMs = m_player->trimStart();
     qint64 endMs   = m_player->trimEnd();
 
-    if (endMs > startMs) {
+    if (endMs > startMs)
         durationSec = (endMs - startMs) / 1000.0;
-    }
 
-    // --- Size calculation ---
     double sizeMB =
         (totalBitrateKbps * durationSec) / (8.0 * 1024.0);
 
     ui->fileSizeLabel->setText(
-        QString("File size: %1 MB")
+        QString("File size: ~%1 MB")
             .arg(sizeMB, 0, 'f', 1)
         );
+}
 
+void MainWindow::autoAdjustVideoBitrateForResolution()
+{
+    if (m_sourceInfo.videoBitrate <= 0)
+        return;
+
+    QString res = ui->resolutionCombo->currentData().toString();
+    if (res.isEmpty())
+        return;
+
+    QStringList parts = res.split("x");
+    if (parts.size() != 2)
+        return;
+
+    int rw = parts[0].toInt();
+    int rh = parts[1].toInt();
+
+    double originalPixels =
+        double(m_sourceInfo.width) * m_sourceInfo.height;
+    double targetPixels =
+        double(rw) * rh;
+
+    if (originalPixels <= 0)
+        return;
+
+    // --- Pixel-based scaling (gentle curve) ---
+    double scale = targetPixels / originalPixels;
+    scale = std::pow(scale, 0.85);
+    scale = qBound(0.30, scale, 1.0);
+
+    int newBitrate =
+        int(m_sourceInfo.videoBitrate * scale);
+
+    ui->videoBitrateSlider->blockSignals(true);
+    ui->videoBitrateSlider->setValue(newBitrate);
+    ui->videoBitrateSlider->blockSignals(false);
+
+    ui->videoBitrateLabel->setText(
+        QString("Bitrate: %1 kbps (auto)")
+            .arg(newBitrate));
 }
 
 
 void MainWindow::selectInputFile()
 {
+    m_userAdjustedVideoBitrate = false;
+
     inputFilePath = QFileDialog::getOpenFileName(
         this,
         "Select Video File",
@@ -370,10 +398,15 @@ void MainWindow::selectInputFile()
     const int maxVideoBitrate =
         qMax<qint64>(1, m_sourceInfo.videoBitrate);
 
+    ui->videoBitrateSlider->blockSignals(true);
+
     ui->videoBitrateSlider->setEnabled(true);
     ui->videoBitrateSlider->setMinimum(1);
     ui->videoBitrateSlider->setMaximum(maxVideoBitrate);
     ui->videoBitrateSlider->setValue(maxVideoBitrate);
+
+    ui->videoBitrateSlider->blockSignals(false);
+
 
     ui->videoBitrateLabel->setText(
         QString("Bitrate: %1 kbps").arg(maxVideoBitrate));
@@ -484,177 +517,96 @@ void MainWindow::updateMarkedDuration(qint64 startMs, qint64 endMs)
 void MainWindow::startEncoding()
 {
     qDebug() << "Start encoding clicked";
-    qDebug() << "Input:" << inputFilePath;
-    qDebug() << "Output:" << outputFilePath;
-
-    // 🔥 PAUSE VIDEO PLAYBACK
-    if (m_player) {
-        m_player->pause();
-    }
 
     if (inputFilePath.isEmpty() || outputFilePath.isEmpty()) {
-        QMessageBox::warning(this, "Warning", "Please select both input and output files.");
+        QMessageBox::warning(this, "Warning",
+                             "Please select both input and output files.");
         return;
     }
 
-    if (!outputFilePath.endsWith(".mp4", Qt::CaseInsensitive)) {
-        outputFilePath += ".mp4";
-        ui->outputLabel->setPlainText(outputFilePath);
-    }
+    m_player->pause();
 
-    ui->inputButton->setEnabled(false);
-    ui->outputButton->setEnabled(false);
-    ui->startButton->setEnabled(false);
-    ui->progressBar->setValue(0);
+    // --- Trim ---
+    qint64 trimStartMs = m_player->trimStart();
+    qint64 trimEndMs   = m_player->trimEnd();
 
-    int videoDuration = getVideoDuration(inputFilePath);
-    qDebug() << "Input duration:" << videoDuration << "seconds";
+    bool hasTrim =
+        trimEndMs > trimStartMs &&
+        trimEndMs <= m_sourceInfo.duration * 1000;
 
-    bool shouldTrim = (videoDuration > 30);
-    isTrimming = shouldTrim;
+    double trimStartSec = trimStartMs / 1000.0;
+    double trimDurationSec =
+        (trimEndMs - trimStartMs) / 1000.0;
 
-    trimmedFilePath.clear();
-    ffmpegInputFile = inputFilePath;
+    // --- UI values ---
+    int userVideoBitrate = ui->videoBitrateSlider->value();
+    int audioBitrate     = ui->audioBitrateSlider->value();
+    int fps              = ui->fpsSlider->value();
 
-    if (shouldTrim) {
-        totalDuration = 30;
+    QString res = ui->resolutionCombo->currentData().toString();
+    int outW = m_sourceInfo.width;
+    int outH = m_sourceInfo.height;
 
-        QFileInfo inputInfo(outputFilePath);
-
-        trimmedFilePath =
-            inputInfo.absolutePath() + "/" +
-            inputInfo.completeBaseName() +
-            "-trimming.mp4";
-
-
-        QStringList trimArgs = {
-            "-y",
-            "-ss", QString::number(videoDuration - 30),
-            "-i", inputFilePath,
-            "-t", "30",
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "18",
-            "-c:a", "aac",
-            "-movflags", "+faststart",
-            "-progress", "pipe:1",
-            "-nostats",
-            "-loglevel", "error",
-            trimmedFilePath
-        };
-
-        qDebug() << "Running trim FFmpeg:";
-        qDebug() << ffmpegPath << trimArgs;
-
-        QProcess trimProcess;
-        trimProcess.setProgram(ffmpegPath);
-        trimProcess.setArguments(trimArgs);
-        trimProcess.setProcessChannelMode(QProcess::MergedChannels);
-        trimProcess.start();
-
-        while (trimProcess.state() != QProcess::NotRunning) {
-            trimProcess.waitForReadyRead(100);
-            ffmpegProcess = &trimProcess;
-            updateProgress();
-            QCoreApplication::processEvents();
-        }
-
-        qDebug() << "Trim exit code:" << trimProcess.exitCode();
-
-        isTrimming = false;
-
-        totalDuration = getVideoDuration(trimmedFilePath);
-        qDebug() << "Trimmed duration:" << totalDuration;
-
-        ffmpegInputFile = trimmedFilePath;
-    } else {
-        totalDuration = videoDuration;
-        isTrimming = false;
-    }
-
-    qDebug() << "Starting compression";
-    qDebug() << "Input used:" << ffmpegInputFile;
-
-    ffmpegProcess = new QProcess(this);
-
-    connect(ffmpegProcess, &QProcess::readyReadStandardOutput,
-            this, &MainWindow::updateProgress);
-
-    connect(ffmpegProcess, &QProcess::finished,
-            this, [this](int exitCode, QProcess::ExitStatus exitStatus) {
-
-        qDebug() << "Compression finished";
-        qDebug() << "Exit code:" << exitCode;
-        qDebug() << "Exit status:" << exitStatus;
-
-        if (exitStatus == QProcess::NormalExit && exitCode == 0) {
-            deleteTrimmedFile(trimmedFilePath);
-        }
-    });
-
-    // --- Selected UI values ---
-    int videoBitrate = ui->videoBitrateSlider->value();   // kbps
-    int audioBitrate = ui->audioBitrateSlider->value();   // kbps
-    int fps          = ui->fpsSlider->value();
-
-    QString resText  = ui->resolutionCombo->currentData().toString();
-
-    int outWidth  = m_sourceInfo.width;
-    int outHeight = m_sourceInfo.height;
-
-    QStringList parts = resText.split("x");
+    QStringList parts = res.split("x");
     if (parts.size() == 2) {
-        outWidth  = parts[0].toInt();
-        outHeight = parts[1].toInt();
+        outW = parts[0].toInt();
+        outH = parts[1].toInt();
     }
 
+    // --- Scaled video bitrate ---
+    int videoBitrate =
+        computeScaledVideoBitrate(userVideoBitrate, outW, outH, fps);
     QString videoBitrateArg = QString::number(videoBitrate) + "k";
-    QString audioBitrateArg = QString::number(audioBitrate) + "k";
     QString fpsArg = QString::number(fps);
-    QString scaleFilter =
-        QString("scale=%1:%2:flags=lanczos")
-            .arg(outWidth  / 2 * 2)
-            .arg(outHeight / 2 * 2);
+    QString scaleFilter = QString("scale=%1:%2:flags=lanczos")
+                              .arg(outW / 2 * 2)
+                              .arg(outH / 2 * 2);
 
+    // --- CRF tuning ---
+    int crf = 22;
+    if (outH <= 720) crf = 23;
+    if (outH <= 480) crf = 24;
 
-    QStringList compressArgs = {
-        "-y",
-        "-i", ffmpegInputFile,
+    QStringList args;
+    args << "-y";
 
-        // --- Video ---
-        "-c:v", "libx264",
-        "-preset", "fast",
-        "-b:v", videoBitrateArg,
-        "-maxrate", videoBitrateArg,
-        "-bufsize", QString::number(videoBitrate * 2) + "k",
-        "-r", fpsArg,
-        "-vf", scaleFilter,
+    if (hasTrim) {
+        args << "-ss" << QString::number(trimStartSec, 'f', 3)
+        << "-t"  << QString::number(trimDurationSec, 'f', 3);
+        totalDuration = trimDurationSec;
+    } else {
+        totalDuration = m_sourceInfo.duration;
+    }
 
-        // --- Audio ---
-        "-c:a", "aac",
-        "-b:a", audioBitrateArg,
+    args << "-i" << inputFilePath;
 
-        // --- MP4 optimizations ---
-        "-movflags", "+faststart",
+    // --- Video ---
+    args << "-c:v" << "libx264"
+         << "-preset" << "fast"
+         << "-b:v" << videoBitrateArg
+         << "-maxrate" << videoBitrateArg
+         << "-bufsize" << QString::number(videoBitrate * 2) + "k"
+         << "-r" << fpsArg
+         << "-vf" << scaleFilter;
 
-        // --- Progress reporting ---
-        "-progress", "pipe:1",
-        "-nostats",
-        "-loglevel", "error",
+    // --- Audio ---
+    args << "-c:a" << "aac"
+         << "-b:a" << QString::number(audioBitrate) + "k";
 
-        outputFilePath
-    };
+    // --- MP4 + progress ---
+    args << "-movflags" << "+faststart"
+         << "-progress" << "pipe:1"
+         << "-nostats"
+         << "-loglevel" << "error";
 
+    args << outputFilePath;
 
-    qDebug() << "Compression command:";
-    qDebug() << ffmpegPath << compressArgs;
+    qDebug() << "FFmpeg:" << ffmpegPath << args;
 
     ffmpegProcess->setProgram(ffmpegPath);
-    ffmpegProcess->setArguments(compressArgs);
+    ffmpegProcess->setArguments(args);
     ffmpegProcess->setProcessChannelMode(QProcess::MergedChannels);
     ffmpegProcess->start();
-
-    qDebug() << "FFmpeg compression started";
 }
 
 void MainWindow::deleteTrimmedFile(const QString &trimmedFilePath)
@@ -728,6 +680,34 @@ void MainWindow::updateProgress()
         QMessageBox::information(this, "Finished", "Video compressed!");
     }
 }
+
+int MainWindow::computeScaledVideoBitrate(int userBitrate,
+                                          int outWidth,
+                                          int outHeight,
+                                          int fps) const
+{
+    if (userBitrate <= 0)
+        return 0;
+
+    // Reference: 1080p @ 60fps
+    const double refPixels = 1920.0 * 1080.0;
+    const double curPixels = double(outWidth) * outHeight;
+
+    double resFactor = curPixels / refPixels;
+    resFactor = qBound(0.15, resFactor, 1.0);
+
+    double fpsFactor = fps / 60.0;
+    fpsFactor = qBound(0.35, fpsFactor, 1.0);
+
+    int scaled =
+        int(userBitrate * resFactor * fpsFactor);
+
+    // Safety clamp
+    scaled = qBound(400, scaled, userBitrate);
+
+    return scaled;
+}
+
 
 
 void MainWindow::showAboutDialog()
