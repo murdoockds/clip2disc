@@ -34,6 +34,9 @@ signals:
     // Emitted when user clicks the overlay
     void requestOpenFile();
 
+protected:
+    void resizeEvent(QResizeEvent *event) override;
+
 private:
     void updateControlsEnabled(bool enabled);
     bool m_hasMedia = false;

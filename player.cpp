@@ -28,7 +28,10 @@ Player::Player(QWidget *parent)
     m_player->setVideoOutput(m_videoWidget);
 
     // --- Overlay ---
-    m_overlay = new ClickOverlay(this);
+    m_overlay = new ClickOverlay(m_videoWidget);  // parent = video widget
+    m_overlay->setGeometry(m_videoWidget->rect());
+    m_overlay->raise();
+    m_overlay->show();
 
     // --- Stack video + overlay ---
     auto *videoStack = new QStackedLayout;
@@ -197,6 +200,15 @@ Player::Player(QWidget *parent)
 
 }
 
+void Player::resizeEvent(QResizeEvent *event)
+{
+    QWidget::resizeEvent(event);  // call base implementation
+
+    if (m_overlay && m_videoWidget)
+        m_overlay->setGeometry(m_videoWidget->rect());
+}
+
+
 // ----------------- UI State -----------------
 
 void Player::updateControlsEnabled(bool enabled)
@@ -242,9 +254,12 @@ void Player::stop()
 {
     m_player->stop();
 
-    // Show black overlay, but WITHOUT text
+    // Show black overlay WITH text
     m_overlay->show();
-    m_overlay->showText(false);
+    m_overlay->showText(false);   // don't show "Click to select video"
+
+    m_overlay->raise();          // ensure it's on top
+    m_overlay->setGeometry(m_videoWidget->rect());  // match video size
 
     m_btnPlayPause->setIcon(
         style()->standardIcon(QStyle::SP_MediaPlay)
