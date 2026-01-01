@@ -133,14 +133,10 @@ jobs:
         with:
           python-version: 3.13
 
-      # Install deps.py requirements
-      - name: Install pip requirements
-        run: pip install --upgrade pip
-
       # Install system dependencies and linuxdeploy
       - name: Install dependencies for AppImage
         run: |
-          sudo apt-get update -y || true   # avoid failing due to missing keys
+          sudo apt-get update -y || true
           sudo apt-get install -y build-essential libncursesw5-dev bison flex \
             liblua5.4-dev libsqlite3-dev libz-dev pkg-config ccache advancecomp \
             libsdl2-image-dev libsdl2-mixer-dev libsdl2-dev libfreetype6-dev \
@@ -163,16 +159,15 @@ jobs:
       # Build AppImage using Makefile
       - name: Build AppImage
         run: make -j$(nproc) appimage
-        working-directory: crawl-ref/source
+        working-directory: ${{ github.workspace }}
 
-      # Upload AppImage to release
-      - name: Add AppImage to release
-        uses: svenstaro/upload-release-action@v2
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
-          file: crawl-ref/source/stone_soup-latest-linux-console.x86_64.AppImage
-          asset_name: dcss-$tag-linux-console.x86_64.AppImage
+    # Upload AppImage as artifact
+    - name: Upload AppImage Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: clip2disc_${{ github.event.release.tag_name }}_AppImage
+        path: ${{ github.workspace }}/stone_soup-latest-linux-console.x86_64.AppImage
+        if-no-files-found: ignore
 
   release:
     if: github.event_name == 'workflow_dispatch'
