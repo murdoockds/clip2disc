@@ -169,7 +169,7 @@ jobs:
       - name: Run linuxdeployqt
         run: |
           /tmp/linuxdeployqt.AppImage \
-            build/clip2disc.desktop \
+            resources/clip2disc.desktop \
             -appimage \
             -bundle-non-qt-libs \
             -extra-plugins=iconengines,platformthemes/libqgtk3.so
