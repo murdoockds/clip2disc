@@ -38,19 +38,9 @@ Player::Player(QWidget *parent)
 
     // --- Overlay ---
     m_overlay = new ClickOverlay(videoContainer);  // parent = container
-    m_overlay->setGeometry(videoContainer->rect());
+    videoStack->addWidget(m_overlay);              // add on top of video
     m_overlay->raise();
     m_overlay->show();
-
-    QTimer::singleShot(0, [this]() {
-        if (m_overlay) {
-            m_overlay->show();
-            m_overlay->showText(true);
-            m_overlay->raise();
-            m_overlay->update();
-        }
-    });
-
 
     // --- Timeline ---
     m_timeline = new TimelineWidget(this);
@@ -194,13 +184,11 @@ void Player::updateControlsEnabled(bool enabled)
 
 void Player::play()
 {
-    m_overlay->hide();          // reveal video
+    m_overlay->hide();   // hide the clickable text while playing
     m_player->play();
-
-    m_btnPlayPause->setIcon(
-        style()->standardIcon(QStyle::SP_MediaPause)
-        );
+    m_btnPlayPause->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
 }
+
 
 
 
@@ -220,18 +208,8 @@ void Player::pause()
 void Player::stop()
 {
     m_player->stop();
-
-    // Show black overlay WITH text
-    m_overlay->show();
-    m_overlay->showText(true);   // don't show "Click to select video"
-
-    m_overlay->raise();          // ensure it's on top
-    m_overlay->setGeometry(m_videoWidget->rect());  // match video size
-
-    m_btnPlayPause->setIcon(
-        style()->standardIcon(QStyle::SP_MediaPlay)
-        );
-
+    m_overlay->show();   // just the text is visible
+    m_btnPlayPause->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
     m_reachedTrimEnd = false;
 }
 
