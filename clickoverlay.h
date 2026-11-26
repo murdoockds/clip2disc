@@ -13,6 +13,8 @@ public:
     explicit ClickOverlay(QWidget *parent = nullptr);
 
     void showText(bool visible);
+    void setText(const QString &text);
+    void setClickable(bool clickable);
     QLabel *m_label;
 signals:
     void clicked();
@@ -20,6 +22,9 @@ signals:
 protected:
     void resizeEvent(QResizeEvent *event) override;
     void mousePressEvent(QMouseEvent *event) override;
+
+private:
+    bool m_clickable = true;
 };
 
 #endif // CLICKOVERLAY_H

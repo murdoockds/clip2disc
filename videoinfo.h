@@ -13,6 +13,10 @@ struct VideoInfo {
 
     QString videoCodec;
     QString audioCodec;
+    QString pixFmt;
+
+    bool hasVideo = false;
+    bool hasAudio = false;
 
     qint64 bitrate = 0;       // container bitrate (kbps)
     qint64 videoBitrate = 0;  // video stream bitrate (kbps)

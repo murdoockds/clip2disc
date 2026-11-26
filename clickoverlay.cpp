@@ -13,15 +13,18 @@ ClickOverlay::ClickOverlay(QWidget *parent)
     setStyleSheet("background: transparent;"); // fully transparent
 
     // --- Label ---
-    m_label = new QLabel("Click to select video", this);
+    m_label = new QLabel("Drop a video here or click to select\nMP4 • MKV • WebM • AVI • MOV", this);
     m_label->setAlignment(Qt::AlignCenter);
     m_label->setStyleSheet(
-        "color: white;"
-        "font-size: 18px;"
-        "font-weight: 500;"
-        "background: rgba(0,0,0,0.5);" // optional semi-transparent background
+        "color: #DBDEE1;"
+        "font-size: 16px;"
+        "font-weight: 600;"
+        "padding: 18px 28px;"
+        "border: 2px dashed #5865F2;"
+        "border-radius: 12px;"
+        "background: rgba(30, 31, 34, 0.78);"
         );
-    m_label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_label->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     m_label->setVisible(true);
 
     // Inside ClickOverlay constructor
@@ -41,12 +44,10 @@ ClickOverlay::ClickOverlay(QWidget *parent)
     show();
 }
 
-// make sure label always fills overlay
+// keep overlay centered cleanly
 void ClickOverlay::resizeEvent(QResizeEvent *event)
 {
     QWidget::resizeEvent(event);
-    if (m_label)
-        m_label->setGeometry(rect());
 }
 
 // show or hide the label
@@ -56,9 +57,23 @@ void ClickOverlay::showText(bool visible)
         m_label->setVisible(visible);
 }
 
+void ClickOverlay::setText(const QString &text)
+{
+    if (m_label)
+        m_label->setText(text);
+}
+
+void ClickOverlay::setClickable(bool clickable)
+{
+    m_clickable = clickable;
+}
+
 // emit click signal
 void ClickOverlay::mousePressEvent(QMouseEvent *event)
 {
+    Q_UNUSED(event);
+    if (!m_clickable)
+        return;
     qDebug() << "Overlay clicked";
     emit clicked();
 }
